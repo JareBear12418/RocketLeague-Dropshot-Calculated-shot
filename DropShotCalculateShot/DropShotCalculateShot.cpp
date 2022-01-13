@@ -165,6 +165,7 @@ Vector blue_tiles[70] = {
 
 // This is the selected tiles used to calculate stuff
 bool is_on_blue_team;
+bool did_blue_score_last;
 std::vector<Vector> team_tiles; // The tiles to use depending on what team you are on
 std::vector<int> tiles_to_avoid; // depends on selected team
 int32_t ball_state = 0; // the balls current state
@@ -273,7 +274,7 @@ void find_updated_tile(Vector ball) {
 		Vector point6 = { h->center_position.X - 384.0f, h->center_position.Y + 221.7f, 0.0f };
 
 		std::vector<Vector> hexagon[6] = {
-			{point1, point2} ,
+			{point1, point2},
 			{point2, point3},
 			{point3, point4},
 			{point4, point5},
@@ -282,14 +283,18 @@ void find_updated_tile(Vector ball) {
 		};
 		if (inside(ball, hexagon)) {
 			if (ball_state == 0) {
-				if (h->state <= 2)
+				if (h->state < 2) {
+					LOG("{} NORMAL BALL Setting state of tile {} to {}", __FUNCTION__, h->id, h->state);
 					h->state++;
+				}
 			} else {
 				std::vector<int> neighbor = get_neighbors(h->center_position);
 				for (int i = 0; i < neighbor.size(); i++) {
 					Hexagon* hexagon = &all_hexagons[neighbor[i]];
-					if (h->state <= 2)
+					if (hexagon->state < 2) {
+						LOG("{} CHARGED BALL Setting state of tile {} and the tiles around {} to {}", __FUNCTION__, h->id, h->id, h->state);
 						hexagon->state++;
+					}
 				}
 			}
 		}
@@ -343,13 +348,11 @@ std::vector<int>find_best_shot() {
 * @return A vector list of id's for each tile.
 */
 std::vector<int>find_open_nets() {
-	float opened_counter = 0;
 	std::vector<int> tiles_with_most_opened_neighbors;
 	for (int i = 0; i < all_hexagons.size(); i++)
 	{
-		std::vector<int> n;
 		Hexagon h = all_hexagons[i];
-		if (all_hexagons[i].state >= 2) // >= 2 because of reasons..
+		if (all_hexagons[i].state == 2)
 			tiles_with_most_opened_neighbors.push_back(h.id);
 	}
 	return tiles_with_most_opened_neighbors;
@@ -377,17 +380,20 @@ void reset_variables() {
 	}
 	for (int i = 0; i < 70; i++) {
 		Hexagon h;
-		h.id = 0;
+		h.id = i;
 		h.state = 0;
 		h.center_position = { team_tiles[i].X, team_tiles[i].Y };
 		all_hexagons.push_back(h);
 	}	
-	for (int i = 0; i < 70; i++) {
-		all_hexagons[i].id = i;
-		all_hexagons[i].state = 0;
-		all_hexagons[i].center_position = { team_tiles[i].X, team_tiles[i].Y };
-	}
-	LOG("Variables reset");
+	//for (int i = 0; i < 70; i++) {
+	//	all_hexagons[i].id = i;
+	//	all_hexagons[i].state = 0;
+	//	all_hexagons[i].center_position = { team_tiles[i].X, team_tiles[i].Y };
+	//}
+	//LOG("Variables reset");
+	/*for (int i = 0; i < 70; i++) {
+		LOG("tiled ID: {} state: {}", all_hexagons[i].id, all_hexagons[i].state);
+	}*/
 }
 void DropShotCalculateShot::onLoad()
 {
@@ -428,7 +434,7 @@ void DropShotCalculateShot::onLoad()
 			if (newIndex == 0) {
 				gameWrapper->SetTimeout([this, newIndex](GameWrapper* gw) {
 					ball_state = newIndex;
-					}, 0.15f);
+					}, 0.15f); // I can add a delay becaues the ball can't change state in under .2 seconds anyway.. this is important.
 			}
 			else {
 				ball_state = newIndex;
@@ -452,41 +458,45 @@ void DropShotCalculateShot::onLoad()
 			int teamNumber = primaryPri.GetTeamNum2();
 
 			if (teamNumber == 0 && !is_on_blue_team) {
-				LOG("Changed team to blue team");
+				//LOG("Changed team to blue team");
 				is_on_blue_team = true;
 				reset_variables();
 			}
 			else if (teamNumber == 1 && is_on_blue_team) {
-				LOG("Changed team to orange team");
+				//LOG("Changed team to orange team");
 				is_on_blue_team = false;
 				reset_variables();
 			} else {
-				LOG("Still on the same team. is on blue team: {}", is_on_blue_team);
+				//LOG("Still on the same team. is on blue team: {}", is_on_blue_team);
 			}
 		});
 
 	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.GameEvent_Soccar_TA.EventGoalScored",
 		[this] (BallWrapper caller, void* params, std::string eventname) {
-			LOG("X: {} Y: {}", ballLocation.X, ballLocation.Y);
 			if (ballLocation.Y > 0 && is_on_blue_team) {
-				LOG("BLUE SCORED");
-				gameWrapper->SetTimeout([this] (GameWrapper* gw) {
-					reset_variables();
-				}, 0.15f);
+				//LOG("BLUE SCORED");
+				did_blue_score_last = true;
+				reset_variables();
 			}
 			else if (ballLocation.Y < 0 && !is_on_blue_team) {
-				LOG("ORANGE SCORED");
-				gameWrapper->SetTimeout([this] (GameWrapper* gw) {
-					reset_variables();
-				}, 0.15f);
+				//LOG("ORANGE SCORED");
+				did_blue_score_last = false;
+				reset_variables();
 			}
 		});
 	/*gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", [this](std::string eventName) {
 			reset_variables();
 		});*/
-	//gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", [this](std::string eventName) {
-	//	reset_variables();
-	//	});
+	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", [this](std::string eventName) {
+		if (is_on_blue_team && did_blue_score_last) {
+			//LOG("You are on blue team and blue scored");
+			reset_variables();
+		}
+		else if (!is_on_blue_team && !did_blue_score_last) {
+			//LOG("You are on orange team and orange scored");
+			reset_variables();
+		}
+	});
 }
 void DropShotCalculateShot::onUnload()
 {
@@ -516,9 +526,9 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas)
 	if (ball.GetLocation().X != 0.0 && ball.GetLocation().Y != 0.0 && ball.GetLocation().Z >= 0)
 		ballLocation = { ball.GetLocation().X, ball.GetLocation().Y, ball.GetLocation().Z };
 	std::vector<int> best_shot_tiles = find_best_shot();
-	LOG("SIZE: {}", best_shot_tiles.size());
 	for (int i = 0; i < best_shot_tiles.size(); i++) {
 		Hexagon h = all_hexagons[best_shot_tiles[i]];
+		//LOG("DAMAGED NET STATES: {}", h.state);
 		if (h.state != 2) {
 			Vector point1 = { h.center_position.X, h.center_position.Y + 443.41f, 0.0f };
 			Vector point2 = { h.center_position.X + 384.0f, h.center_position.Y + 221.7f, 0.0f };
@@ -543,6 +553,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas)
 	std::vector<int> open_nets = find_open_nets();
 	for (int i = 0; i < open_nets.size(); i++) {
 		Hexagon h = all_hexagons[open_nets[i]];
+		//LOG("OPENED NET STATES: {}", h.state);
 		Vector point1 = { h.center_position.X, h.center_position.Y + 443.41f, 0.0f };
 		Vector point2 = { h.center_position.X + 384.0f, h.center_position.Y + 221.7f, 0.0f };
 		Vector point3 = { h.center_position.X + 384.0f, h.center_position.Y - 221.7f, 0.0f };
