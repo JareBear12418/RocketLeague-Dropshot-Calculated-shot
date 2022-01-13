@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DropShotTile.h"
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
@@ -8,15 +9,27 @@
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
 
-class DropShotCalculateShot: public BakkesMod::Plugin::BakkesModPlugin/*, public BakkesMod::Plugin::PluginSettingsWindow*//*, public BakkesMod::Plugin::PluginWindow*/
+class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin/*, public BakkesMod::Plugin::PluginSettingsWindow*/ /*, public BakkesMod::Plugin::PluginWindow*/
 {
-
-	//std::shared_ptr<bool> enabled;
+	bool is_on_blue_team = false;
+	std::vector<DropShotTile> all_tiles;
+	std::vector<Vector> team_tiles; // The tiles to use depending on what team you are on
+	std::vector<int> tiles_to_avoid; // depends on selected team
+	int32_t ball_state = 0; // the balls current state
+	Vector ballLocation;
 
 	//Boilerplate
 	virtual void onLoad();
 	virtual void onUnload();
 	void Render(CanvasWrapper canvas);
+
+	std::vector<int> GetTileNeighbours(const DropShotTile& tile) const;
+	std::vector<int> GetTileNeighbours(const DropShotTile& tile, int ball_state);
+	void FindUpdatedTile(const Vector& ball_position);
+	std::vector<int> FindBestShot();
+	std::vector<int> FindOpenNets() const;
+	void ResetVariables();
+
 
 	// Inherited via PluginSettingsWindow
 	/*
@@ -43,4 +56,3 @@ class DropShotCalculateShot: public BakkesMod::Plugin::BakkesModPlugin/*, public
 	
 	*/
 };
-
