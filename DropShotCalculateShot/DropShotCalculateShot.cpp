@@ -13,12 +13,11 @@ BAKKESMOD_PLUGIN(DropShotCalculateShot, "Calculates the best tile to shoot at in
 std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 struct Hexagon {
 	int id; // the tile id
-	int state; // the tiles state from 1-3
-	Vector2F center_position;
+	int state; // the tiles state from 0-2, 0 being normal, 1 being damaged, 2 being opened
+	Vector2F center_position; // The center position of the tile.
 };
 std::vector<Hexagon> all_hexagons;
 
-bool is_on_blue_team;
 Vector orange_tiles[70] = {
 	  {4608.0, 128.0, 0.0},
 	  {3840.0, 128.0, 0.0},
@@ -165,51 +164,61 @@ Vector blue_tiles[70] = {
 };
 
 // This is the selected tiles used to calculate stuff
-std::vector<Vector> team_tiles;
-std::vector<int> tiles_to_avoid; //depends on selected team
-int32_t ball_state = 0;
-//std::shared_ptr<ImageWrapper> hexagon_image;
+bool is_on_blue_team;
+std::vector<Vector> team_tiles; // The tiles to use depending on what team you are on
+std::vector<int> tiles_to_avoid; // depends on selected team
+int32_t ball_state = 0; // the balls current state
+/**
+* Checks if the ball is inside the hexagon using ray-casting algorithm
+* @param point - ball position
+* @param hexagon_corners - the cornors for the hexagon
+* @return boolean
+*/
 bool inside(Vector point, std::vector<Vector> hexagon_corners[6]) {
-	// ray-casting algorithm based on
-	// https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html/pnpoly.html
-
-	float x = point.X;
-	float y = point.Y;
+	float ball_x = point.X;
+	float ball_y = point.Y;
 
 	bool inside = false;
 	for (int i = 0; i < 6; i++) {
-		float xi = hexagon_corners[i][0].X;
-		float yi = hexagon_corners[i][0].Y;
-		float xj = hexagon_corners[i][1].X;
-		float yj = hexagon_corners[i][1].Y;
-		bool intersect = ((yi >= y) != (yj >= y)) && (x <= (xj - xi)* (y - yi) / (yj - yi) + xi);
+		float x1 = hexagon_corners[i][0].X;
+		float y1 = hexagon_corners[i][0].Y;
+		float x2 = hexagon_corners[i][1].X;
+		float y2 = hexagon_corners[i][1].Y;
+		bool intersect = ((y1 >= ball_y) != (y2 >= ball_y)) && (ball_x <= (x2 - x1)* (ball_y - y1) / (y2 - y1) + x1);
 		if (intersect) inside = !inside;
 	}
-
 	return inside;
 };
-double distance(const Vector2F& p1, const Vector2F& p2)
-{
+/**
+* Your standard distance calculation
+* @param p1 - first positon
+* @param p2 - second position
+* @return distance as a double
+*/
+double distance(const Vector2F& p1, const Vector2F& p2){
 	const double x_diff = static_cast<double>(p1.X) - static_cast<double>(p2.X);
 	const double y_diff = static_cast<double>(p1.Y) - static_cast<double>(p2.Y);
 	return std::sqrt(x_diff * x_diff + y_diff * y_diff);
 }
+/**
+* Get the neighboring tiles depending on the balls state,
+* @param center_position - Postion of the tile
+* @return A vector list of id's for each tile.
+*/
 std::vector<int> get_neighbors(Vector2F center_position) {
 	std::vector<int> v;
-	if (ball_state == 1) {
+	if (ball_state == 1) { // Ball state charged
 		int r = 1000;
-		for (int i = 0; i < all_hexagons.size(); i++)
-		{
+		for (int i = 0; i < all_hexagons.size(); i++) {
 			Hexagon h = all_hexagons[i];
 			if (distance(center_position, h.center_position) < r) {
 				v.push_back(h.id);
 			}
 		}
 	}
-	else if (ball_state == 2) {
+	else if (ball_state == 2) { // Ball state super charged
 		int r = 1650;
-		for (int i = 0; i < all_hexagons.size(); i++)
-		{
+		for (int i = 0; i < all_hexagons.size(); i++) {
 			Hexagon h = all_hexagons[i];
 			if (distance(center_position, h.center_position) < r) {
 				v.push_back(h.id);
@@ -218,12 +227,17 @@ std::vector<int> get_neighbors(Vector2F center_position) {
 	}
 	return v;
 }
+/**
+* Get the neighboring tiles depending on 'ball_state',
+* @param center_position - Postion of the tile
+* @param ball_state the pre set state of the ball for simulating ahead.
+* @return A vector list of id's for each tile.
+*/
 std::vector<int> get_neighbors(Vector2F center_position, int ball_state) {
 	std::vector<int> v;
 	if (ball_state == 1) {
 		int r = 1000;
-		for (int i = 0; i < all_hexagons.size(); i++)
-		{
+		for (int i = 0; i < all_hexagons.size(); i++) {
 			Hexagon h = all_hexagons[i];
 			if (distance(center_position, h.center_position) < r) {
 				v.push_back(h.id);
@@ -232,8 +246,7 @@ std::vector<int> get_neighbors(Vector2F center_position, int ball_state) {
 	}
 	else if (ball_state == 2) {
 		int r = 1650;
-		for (int i = 0; i < all_hexagons.size(); i++)
-		{
+		for (int i = 0; i < all_hexagons.size(); i++) {
 			Hexagon h = all_hexagons[i];
 			if (distance(center_position, h.center_position) < r) {
 				v.push_back(h.id);
@@ -242,6 +255,11 @@ std::vector<int> get_neighbors(Vector2F center_position, int ball_state) {
 	}
 	return v;
 }
+/**
+* This only runs when damage event has been called, we get the balls position and check if its within 
+* the shape of the hexagon.
+* @param ball - Postion of the ball
+*/
 void find_updated_tile(Vector ball) {
 	for (int i = 0; i < all_hexagons.size(); i++) {
 		Hexagon* h = &all_hexagons[i];
@@ -265,11 +283,9 @@ void find_updated_tile(Vector ball) {
 			if (ball_state == 0) {
 				if (h->state <= 2)
 					h->state++;
-			}
-			else {
+			} else {
 				std::vector<int> neighbor = get_neighbors(h->center_position);
-				for (int i = 0; i < neighbor.size(); i++)
-				{
+				for (int i = 0; i < neighbor.size(); i++) {
 					Hexagon* hexagon = &all_hexagons[neighbor[i]];
 					if (h->state <= 2)
 						hexagon->state++;
@@ -278,14 +294,17 @@ void find_updated_tile(Vector ball) {
 		}
 	}
 }
+/**
+* Calculates the best shot based on a number of factors.
+* @return A vector list of id's for each tile.
+*/
 std::vector<int>find_best_shot() {
 	float ratio = 0.0f;
 	float normal_counter = 0;
 	float damaged_counter = 0;
 	float opened_counter = 0;
 	std::vector<int> tiles_with_most_damaged_neighbors;
-	for (int i = 0; i < all_hexagons.size(); i++)
-	{
+	for (int i = 0; i < all_hexagons.size(); i++) {
 		std::vector<int> n;
 		Hexagon h = all_hexagons[i];
 		if (ball_state == 0)
@@ -295,8 +314,7 @@ std::vector<int>find_best_shot() {
 		normal_counter = 0;
 		damaged_counter = 0;
 		opened_counter = 0;
-		for (int j = 0; j < n.size(); j++)
-		{
+		for (int j = 0; j < n.size(); j++) {
 			if (all_hexagons[n[j]].state == 0)
 				normal_counter++;
 			else if (all_hexagons[n[j]].state == 1)
@@ -311,8 +329,7 @@ std::vector<int>find_best_shot() {
 			if (ball_state != 0) {
 				if ((ratio >= 1.2f && ball_state == 2) || (ratio >= 4.0f && ball_state == 1) && h.state != 2)
 					tiles_with_most_damaged_neighbors.push_back(h.id);
-			}
-			else {
+			} else {
 				if (ratio >= 0.34f && ratio < 1.4f && h.state != 1 && h.state != 2)
 					tiles_with_most_damaged_neighbors.push_back(h.id);
 			}
@@ -320,6 +337,10 @@ std::vector<int>find_best_shot() {
 	}
 	return tiles_with_most_damaged_neighbors;
 }
+/**
+* Find all tiles that have a state of 2, or are open nets.
+* @return A vector list of id's for each tile.
+*/
 std::vector<int>find_open_nets() {
 	float opened_counter = 0;
 	std::vector<int> tiles_with_most_opened_neighbors;
@@ -332,6 +353,9 @@ std::vector<int>find_open_nets() {
 	}
 	return tiles_with_most_opened_neighbors;
 }
+/**
+* Resets all the global variables, i don't know if you should change this but this works, and it took long enough to make it work properly
+*/
 void reset_variables() {
 	team_tiles.clear();
 	tiles_to_avoid.clear();
@@ -370,13 +394,6 @@ void DropShotCalculateShot::onLoad()
 
 	gameWrapper->RegisterDrawable(bind(&DropShotCalculateShot::Render, this, std::placeholders::_1));
 	reset_variables();
-	// This gives me the balls current state
-	// Function TAGame.Ball_Breakout_TA.SetDamageIndex
-
-	/*hexagon_image = std::make_shared<ImageWrapper>(gameWrapper->GetDataFolder() / "DropShotCalculateShot" / "image.png", true, true);
-	hexagon_image->LoadForCanvas();*/
-
-
 
 	//Function TAGame.Ball_Breakout_TA.EventAppliedDamage
 	struct EventAppliedDamageParams {
@@ -386,12 +403,14 @@ void DropShotCalculateShot::onLoad()
 		int8_t DamageIndex;
 		int8_t TotalDamage;
 	};
+
 	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.Ball_Breakout_TA.EventAppliedDamage",
 		[this](BallWrapper caller, void* params, std::string eventname) {
 			EventAppliedDamageParams* param = (EventAppliedDamageParams*)params;
-			LOG("EVENT APPLIED DAMAGE! Ball state when damage done: {}", ball_state);
 			find_updated_tile(caller.GetLocation());
 		}); 
+
+	//Function TAGame.Ball_Breakout_TA.SetDamageIndex
 	struct SetDamageIndexParams {
 		int32_t InIndex;
 	};
@@ -410,111 +429,35 @@ void DropShotCalculateShot::onLoad()
 			}
 		});
 	
-		gameWrapper->HookEventWithCallerPost<BallWrapper>("Function Engine.PlayerReplicationInfo.OnTeamChanged",
-			[this](BallWrapper caller, void* params, std::string eventname) {
-
-				ServerWrapper sw = gameWrapper->GetCurrentGameState();
-				if (!sw) return;
-
-				auto primary = sw.GetLocalPrimaryPlayer();
-
-				if (primary.IsNull()) return;
-
-				auto primaryPri = primary.GetPRI();
-
-				if (primaryPri.IsNull()) return;
-
-
-				int teamNumber = primaryPri.GetTeamNum2();
-
-				if (teamNumber == 0)
-					is_on_blue_team = true;
-				else
-					is_on_blue_team = false;
-				reset_variables();
-			});
-
-	//struct GetDamageIndexForForceParams {
-	//	float damageIndex; //??
-	//};
-	//gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.Ball_Breakout_TA.GetDamageIndexForForce",
-	//	[this](BallWrapper caller, void* params, std::string eventname) {
-	//		GetDamageIndexForForceParams* param = (GetDamageIndexForForceParams*)params;
-	//		LOG("GetDamageIndexForForce: {}", param->damageIndex);
-	//		if (param->damageIndex > 2500)
-	//			ball_state = 1;
-	//		else if (param->damageIndex > 11000)
-	//			ball_state = 2;
-	//		else
-	//			ball_state = 0;
-	//	});
-	//Function TAGame.Ball_Breakout_TA.EventDamageIndexChanged
-	//struct EventDamageIndexChangedParams {
-	//	uintptr_t Ball; // special breakout ball, castable to BallWrapper
-	//	int32_t InDamageIndex; // up to you to figure out the encoding for this. Probably 0-2 or 1-3
-	//};
-	//gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.Ball_Breakout_TA.EventDamageIndexChanged",
-	//	[this](BallWrapper caller, void* params, std::string eventname) {
-	//		EventDamageIndexChangedParams* param = (EventDamageIndexChangedParams*)params;
-	//		LOG("EVENT DAMAGE INDEX CHANGED! InDamageIndex: {}", param->InDamageIndex);
-	//	});
-
-	/*struct RigidBodyCollisionDataParams
-	{
-		uintptr_t Actor;
-		uintptr_t Component;
-		uintptr_t PhysMat;
-		Vector Velocity;
-		Vector OtherVelocity;
-		Vector Location;
-		Vector Normal;
-		Vector NormalForce;
-		Vector FrictionForce;
-		Vector NormalVelocity;
-		Vector FrictionVelocity;
-		int32_t NumCollisions;
-		int32_t NumContacts;
-	};
-	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.Ball_Breakout_TA.OnRigidBodyCollision",
+	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function Engine.PlayerReplicationInfo.OnTeamChanged",
 		[this](BallWrapper caller, void* params, std::string eventname) {
-			RigidBodyCollisionDataParams* param = (RigidBodyCollisionDataParams*)params;
-			LOG("RigidBodyCollisionDataParams: {}", param->NumContacts);
-		});*/
-	//cvarManager->registerNotifier("my_aweseome_notifier", [&](std::vector<std::string> args) {
-	//	cvarManager->log("Hello notifier!");
-	//	}, "", 0);
 
-	//auto cvar = cvarManager->registerCvar("template_cvar", "hello-cvar", "just a example of a cvar");
-	//auto cvar2 = cvarManager->registerCvar("template_cvar2", "0", "just a example of a cvar with more settings", true, true, -10, true, 10 );
+			ServerWrapper sw = gameWrapper->GetCurrentGameState();
+			if (!sw) return;
 
-	//cvar.addOnValueChanged([this](std::string cvarName, CVarWrapper newCvar) {
-	//	cvarManager->log("the cvar with name: " + cvarName + " changed");
-	//	cvarManager->log("the new value is:" + newCvar.getStringValue());
-	//});
+			auto primary = sw.GetLocalPrimaryPlayer();
 
-	//cvar2.addOnValueChanged(std::bind(&DropShotCalculated::YourPluginMethod, this, _1, _2));
+			if (primary.IsNull()) return;
 
-	 //enabled decleared in the header
-	//enabled = std::make_shared<bool>(false);
-	//cvarManager->registerCvar("TEMPLATE_Enabled", "0", "Enable the TEMPLATE plugin", true, true, 0, true, 1).bindTo(enabled);
+			auto primaryPri = primary.GetPRI();
 
-	//cvarManager->registerNotifier("NOTIFIER", [this](std::vector<std::string> params){FUNCTION();}, "DESCRIPTION", PERMISSION_ALL);
-	//cvarManager->registerCvar("CVAR", "DEFAULTVALUE", "DESCRIPTION", true, true, MINVAL, true, MAXVAL);//.bindTo(CVARVARIABLE);
-	//gameWrapper->HookEvent("FUNCTIONNAME", std::bind(&TEMPLATE::FUNCTION, this));
-	//gameWrapper->HookEventWithCallerPost<ActorWrapper>("FUNCTIONNAME", std::bind(&DropShotCalculated::FUNCTION, this, _1, _2, _3));
-	//gameWrapper->RegisterDrawable(bind(&TEMPLATE::Render, this, std::placeholders::_1));
+			if (primaryPri.IsNull()) return;
 
+			int teamNumber = primaryPri.GetTeamNum2();
+
+			if (teamNumber == 0)
+				is_on_blue_team = true;
+			else
+				is_on_blue_team = false;
+			reset_variables();
+		});
 
 	gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", [this](std::string eventName) {
-		cvarManager->log("Your hook got called and the ball went POOF Variables should reset");
 			reset_variables();
 		});
 	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", [this](std::string eventName) {
-		cvarManager->log("Timer started Variables should reset");
 		reset_variables();
 		});
-	// You could also use std::bind here
-	//gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", std::bind(&DropShotCalculated::YourPluginMethod, this);
 }
 void DropShotCalculateShot::onUnload()
 {
@@ -599,7 +542,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas)
 	
 	/*canvas.DrawRotatedTile(hexagon_image.get(), rotator, 296, 340, 1, 1, 296, 340, 0.5f, 0.5f);
 	
-
+	// This is code to draw a hexagon with triangles... its pointless but Im keeping it around.. who knows if transparent triangles will come.
 	if (frust.IsInFrustum(hexagon[0][0])) {
 		RT::Triangle::Triangle(hexagon[0][0], hexagon[0][1], hexagon[2][0]).Draw(canvas);
 		RT::Triangle::Triangle(hexagon[2][0], hexagon[2][1], hexagon[5][1]).Draw(canvas);
