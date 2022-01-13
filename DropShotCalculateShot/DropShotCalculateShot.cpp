@@ -341,9 +341,16 @@ void DropShotCalculateShot::onLoad()
 	/*gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", [this](std::string eventName) {
 			reset_variables();
 		});*/
-	//gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", [this](std::string eventName) {
-	//	reset_variables();
-	//	});
+	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", [this](std::string eventName) {
+		if (is_on_blue_team && did_blue_score_last) {
+			//LOG("You are on blue team and blue scored");
+			reset_variables();
+		}
+		else if (!is_on_blue_team && !did_blue_score_last) {
+			//LOG("You are on orange team and orange scored");
+			reset_variables();
+		}
+	});
 }
 
 void DropShotCalculateShot::onUnload() {}
