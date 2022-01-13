@@ -168,6 +168,7 @@ bool is_on_blue_team;
 std::vector<Vector> team_tiles; // The tiles to use depending on what team you are on
 std::vector<int> tiles_to_avoid; // depends on selected team
 int32_t ball_state = 0; // the balls current state
+Vector ballLocation;
 /**
 * Checks if the ball is inside the hexagon using ray-casting algorithm
 * @param point - ball position
@@ -378,7 +379,7 @@ void reset_variables() {
 		Hexagon h;
 		h.id = 0;
 		h.state = 0;
-		h.center_position = { 0, 0 };
+		h.center_position = { team_tiles[i].X, team_tiles[i].Y };
 		all_hexagons.push_back(h);
 	}	
 	for (int i = 0; i < 70; i++) {
@@ -386,6 +387,7 @@ void reset_variables() {
 		all_hexagons[i].state = 0;
 		all_hexagons[i].center_position = { team_tiles[i].X, team_tiles[i].Y };
 	}
+	LOG("Variables reset");
 }
 void DropShotCalculateShot::onLoad()
 {
@@ -407,7 +409,11 @@ void DropShotCalculateShot::onLoad()
 	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.Ball_Breakout_TA.EventAppliedDamage",
 		[this](BallWrapper caller, void* params, std::string eventname) {
 			EventAppliedDamageParams* param = (EventAppliedDamageParams*)params;
-			find_updated_tile(caller.GetLocation());
+			//if the other team deals damage on your side very close to the middle of the field, it 'might' cause issues, not tested, but was a concern.
+			if (is_on_blue_team && caller.GetLocation().Y > 0)
+				find_updated_tile(caller.GetLocation());
+			else if (!is_on_blue_team && caller.GetLocation().Y < 0)
+				find_updated_tile(caller.GetLocation());
 		}); 
 
 	//Function TAGame.Ball_Breakout_TA.SetDamageIndex
@@ -445,19 +451,42 @@ void DropShotCalculateShot::onLoad()
 
 			int teamNumber = primaryPri.GetTeamNum2();
 
-			if (teamNumber == 0)
+			if (teamNumber == 0 && !is_on_blue_team) {
+				LOG("Changed team to blue team");
 				is_on_blue_team = true;
-			else
+				reset_variables();
+			}
+			else if (teamNumber == 1 && is_on_blue_team) {
+				LOG("Changed team to orange team");
 				is_on_blue_team = false;
-			reset_variables();
+				reset_variables();
+			} else {
+				LOG("Still on the same team. is on blue team: {}", is_on_blue_team);
+			}
 		});
 
-	gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", [this](std::string eventName) {
+	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.GameEvent_Soccar_TA.EventGoalScored",
+		[this] (BallWrapper caller, void* params, std::string eventname) {
+			LOG("X: {} Y: {}", ballLocation.X, ballLocation.Y);
+			if (ballLocation.Y > 0 && is_on_blue_team) {
+				LOG("BLUE SCORED");
+				gameWrapper->SetTimeout([this] (GameWrapper* gw) {
+					reset_variables();
+				}, 0.15f);
+			}
+			else if (ballLocation.Y < 0 && !is_on_blue_team) {
+				LOG("ORANGE SCORED");
+				gameWrapper->SetTimeout([this] (GameWrapper* gw) {
+					reset_variables();
+				}, 0.15f);
+			}
+		});
+	/*gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", [this](std::string eventName) {
 			reset_variables();
-		});
-	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", [this](std::string eventName) {
-		reset_variables();
-		});
+		});*/
+	//gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", [this](std::string eventName) {
+	//	reset_variables();
+	//	});
 }
 void DropShotCalculateShot::onUnload()
 {
@@ -484,8 +513,10 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas)
 	TeamWrapper team = teams.Get(team_number);
 	if (!team) return;
 	RT::Frustum frust{ canvas, camera };
-	Vector2F ballLocation = { ball.GetLocation().X, ball.GetLocation().Y };
+	if (ball.GetLocation().X != 0.0 && ball.GetLocation().Y != 0.0 && ball.GetLocation().Z >= 0)
+		ballLocation = { ball.GetLocation().X, ball.GetLocation().Y, ball.GetLocation().Z };
 	std::vector<int> best_shot_tiles = find_best_shot();
+	LOG("SIZE: {}", best_shot_tiles.size());
 	for (int i = 0; i < best_shot_tiles.size(); i++) {
 		Hexagon h = all_hexagons[best_shot_tiles[i]];
 		if (h.state != 2) {
