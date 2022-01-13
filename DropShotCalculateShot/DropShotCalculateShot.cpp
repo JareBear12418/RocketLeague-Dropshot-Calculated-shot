@@ -324,32 +324,30 @@ void DropShotCalculateShot::onLoad()
 			if (ballLocation.Y > 0 && is_on_blue_team)
 			{
 				LOG("BLUE SCORED");
-				gameWrapper->SetTimeout([this](GameWrapper* gw)
-				{
-					ResetVariables();
-				}, 0.15f);
+				did_blue_score_last = true;
+				ResetVariables();
 			}
 			else if (ballLocation.Y < 0 && !is_on_blue_team)
 			{
 				LOG("ORANGE SCORED");
-				gameWrapper->SetTimeout([this](GameWrapper* gw)
-				{
-					ResetVariables();
-				}, 0.15f);
+				did_blue_score_last = false;
+				ResetVariables();
 			}
 		});
 	/*gameWrapper->HookEvent("Function TAGame.Ball_TA.Explode", [this](std::string eventName) {
 			reset_variables();
 		});*/
 	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState", [this](std::string eventName) {
-		if (is_on_blue_team && did_blue_score_last) {
-			//LOG("You are on blue team and blue scored");
-			reset_variables();
-		}
-		else if (!is_on_blue_team && !did_blue_score_last) {
-			//LOG("You are on orange team and orange scored");
-			reset_variables();
-		}
+
+		gameWrapper->SetTimeout([this] (GameWrapper* gw) {
+			if (is_on_blue_team && did_blue_score_last && ballLocation.Y > 0) {
+				LOG("You are on blue team and blue scored");
+				ResetVariables();
+			} else if (!is_on_blue_team && !did_blue_score_last && ballLocation.Y < 0) {
+				LOG("You are on orange team and orange scored");
+				ResetVariables();
+			}
+		}, 0.15f);
 	});
 }
 
@@ -379,7 +377,6 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas)
 	if (ball.GetLocation().X != 0.0 && ball.GetLocation().Y != 0.0 && ball.GetLocation().Z >= 0)
 		ballLocation = {ball.GetLocation().X, ball.GetLocation().Y, ball.GetLocation().Z};
 	std::vector<int> best_shot_tiles = FindBestShot();
-	LOG("SIZE: {}", best_shot_tiles.size());
 	for (int best_shot_tile : best_shot_tiles)
 	{
 		const DropShotTile& h = all_tiles[best_shot_tile];

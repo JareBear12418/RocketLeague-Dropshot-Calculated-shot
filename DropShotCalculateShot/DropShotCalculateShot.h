@@ -12,6 +12,7 @@ constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_M
 class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin/*, public BakkesMod::Plugin::PluginSettingsWindow*/ /*, public BakkesMod::Plugin::PluginWindow*/
 {
 	bool is_on_blue_team = false;
+	bool did_blue_score_last = false;
 	std::vector<DropShotTile> all_tiles;
 	std::vector<Vector> team_tiles; // The tiles to use depending on what team you are on
 	std::vector<int> tiles_to_avoid; // depends on selected team
