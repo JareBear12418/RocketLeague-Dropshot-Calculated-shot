@@ -303,10 +303,11 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	ArrayWrapper<TeamWrapper> teams = server.GetTeams();
 	if (teams.IsNull()) { return; }
 	int team_number = 0;
-	if (is_on_blue_team)
+	if (is_on_blue_team) {
 		team_number = 0;
-	else
+	} else {
 		team_number = 1;
+	}
 	TeamWrapper team = teams.Get(team_number);
 	if (!team) { return; }
 	RT::Frustum frust{canvas, camera};
