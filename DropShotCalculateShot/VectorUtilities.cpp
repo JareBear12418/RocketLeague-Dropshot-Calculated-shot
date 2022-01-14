@@ -19,7 +19,9 @@ bool IsPointInsidePolygon(const Vector& point, const std::vector<std::vector<Vec
 		float x2 = hexagon_corners[i][1].X;
 		float y2 = hexagon_corners[i][1].Y;
 		bool intersect = ((y1 >= ball_y) != (y2 >= ball_y)) && (ball_x <= (x2 - x1)* (ball_y - y1) / (y2 - y1) + x1);
-		if (intersect) inside = !inside;
+		if (intersect) {
+			inside = !inside;
+		}
 	}
 	return inside;
 }
