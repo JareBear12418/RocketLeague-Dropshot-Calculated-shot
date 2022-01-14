@@ -206,10 +206,11 @@ void DropShotCalculateShot::onLoad() {
 		{
 			EventAppliedDamageParams* param = (EventAppliedDamageParams*)params;
 			//if the other team deals damage on your side very close to the middle of the field, it 'might' cause issues, not tested, but was a concern.
-			if (is_on_blue_team && caller.GetLocation().Y > 0)
+			if (is_on_blue_team && caller.GetLocation().Y > 0) {
 				FindUpdatedTile(caller.GetLocation());
-			else if (!is_on_blue_team && caller.GetLocation().Y < 0)
+			} else if (!is_on_blue_team && caller.GetLocation().Y < 0) {
 				FindUpdatedTile(caller.GetLocation());
+			}
 		});
 
 	//Function TAGame.Ball_Breakout_TA.SetDamageIndex
@@ -235,15 +236,15 @@ void DropShotCalculateShot::onLoad() {
 	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function Engine.PlayerReplicationInfo.OnTeamChanged",
 		[this](BallWrapper caller, void* params, std::string eventname) {
 			ServerWrapper sw = gameWrapper->GetCurrentGameState();
-			if (!sw) return;
+			if (!sw) { return; }
 
 			auto primary = sw.GetLocalPrimaryPlayer();
 
-			if (primary.IsNull()) return;
+			if (primary.IsNull()) { return; }
 
 			auto primaryPri = primary.GetPRI();
 
-			if (primaryPri.IsNull()) return;
+			if (primaryPri.IsNull()) { return; }
 
 			int teamNumber = primaryPri.GetTeamNum2();
 
