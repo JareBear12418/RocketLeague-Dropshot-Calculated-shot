@@ -8,4 +8,4 @@
 */
 double DistanceTo(const Vector2F& p1, const Vector2F& p2);
 
-bool IsPointInsidePolygon(const Vector& point, const std::vector<Vector> hexagon_corners[6]);;
+bool IsPointInsidePolygon(const Vector& point, const std::vector<std::vector<Vector>> hexagon_corners);;

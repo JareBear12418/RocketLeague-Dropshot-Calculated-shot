@@ -29,6 +29,7 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin/*, publi
 	void FindUpdatedTile(const Vector& ball_position);
 	std::vector<int> FindBestShot();
 	std::vector<int> FindOpenNets() const;
+	std::vector<std::vector<Vector>> GetHexagonCornors(const DropShotTile& h);
 	void ResetVariables();
 
 

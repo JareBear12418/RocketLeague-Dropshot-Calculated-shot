@@ -8,7 +8,7 @@ double DistanceTo(const Vector2F& p1, const Vector2F& p2) {
 	return std::sqrt(x_diff * x_diff + y_diff * y_diff);
 }
 
-bool IsPointInsidePolygon(const Vector& point, const std::vector<Vector> hexagon_corners[6]) {
+bool IsPointInsidePolygon(const Vector& point, const std::vector<std::vector<Vector>> hexagon_corners) {
 	float ball_x = point.X;
 	float ball_y = point.Y;
 
