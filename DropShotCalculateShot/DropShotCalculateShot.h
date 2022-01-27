@@ -1,10 +1,10 @@
 #pragma once
-
 #include "DropShotTile.h"
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
-
+#include <sstream>
+#include <chrono>
 #include "version.h"
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
@@ -17,7 +17,14 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin/*, publi
 	std::vector<Vector> team_tiles; // The tiles to use depending on what team you are on
 	std::vector<int> tiles_to_avoid; // depends on selected team
 	int32_t ball_state = 0; // the balls current state
+	float ball_charge = 0.0f; // The balls current charge level
 	Vector ballLocation;
+	float carVelocity;
+	float ball_speed;
+	float ballLastHitTime = 0.0f;
+	float ballhitDelta = 0.0f;
+	float remainingEnergy;
+	float distanceFromCarToBall = 0.0f;
 
 	//Boilerplate
 	virtual void onLoad();
@@ -27,9 +34,16 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin/*, publi
 	std::vector<int> GetTileNeighbours(const DropShotTile& tile) const;
 	std::vector<int> GetTileNeighbours(const DropShotTile& tile, int ball_state);
 	void FindUpdatedTile(const Vector& ball_position);
+	DropShotTile FindTileFromPostion(const Vector& position);
+	bool DoesTileExist(const Vector& position);
+	void UpdateAllTiles();
 	std::vector<int> FindBestShot();
 	std::vector<int> FindOpenNets() const;
-	std::vector<std::vector<Vector>> GetHexagonCornors(const DropShotTile& h);
+	std::vector<std::vector<Vector>> GetHexagonCornors(const Vector& center_position);
+	std::vector<Vector> GetHexagonConnectors(const DropShotTile& h);
+	std::vector<std::vector<Vector>> GetFilledHexagonCoordinates(const DropShotTile& h, const int numberOfLines);
+	std::string ConvertToString(float& value);
+	float CarVelocityTowardsBall(CarWrapper& car, BallWrapper& ball);
 	void ResetVariables();
 
 
@@ -55,6 +69,6 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin/*, publi
 	virtual bool IsActiveOverlay() override;
 	virtual void OnOpen() override;
 	virtual void OnClose() override;
-	
+
 	*/
 };

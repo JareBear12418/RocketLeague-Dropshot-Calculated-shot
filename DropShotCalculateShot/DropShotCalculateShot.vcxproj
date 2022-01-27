@@ -182,6 +182,7 @@
     <ClCompile Include="VectorUtilities.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\..\AppData\Roaming\bakkesmod\bakkesmod\bakkesmodsdk\include\bakkesmod\wrappers\GameObject\BreakOutActorPlatformWrapper.h" />
     <ClInclude Include="DropShotTile.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />

@@ -242,6 +242,9 @@
     <ClInclude Include="VectorUtilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\..\AppData\Roaming\bakkesmod\bakkesmod\bakkesmodsdk\include\bakkesmod\wrappers\GameObject\BreakOutActorPlatformWrapper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DropShotCalculateShot.rc">
