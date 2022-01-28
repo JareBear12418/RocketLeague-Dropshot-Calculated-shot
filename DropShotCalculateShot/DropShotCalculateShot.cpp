@@ -122,12 +122,12 @@ std::vector<int32_t> DropShotCalculateShot::FindBestShot() {
 		float normal_counter = 0.0f;
 		float damaged_counter = 0.0f;
 		float opened_counter = 0.0f; // Does nothing, but in case of future.
-		for (int32_t i : neighbours) {
-			if (all_tiles[i].IsNormal()) {
+		for (int32_t neighbour : neighbours) {
+			if (all_tiles[neighbour].IsNormal()) {
 				normal_counter++;
-			} else if (all_tiles[i].IsDamaged()) {
+			} else if (all_tiles[neighbour].IsDamaged()) {
 				damaged_counter++;
-			} else if (all_tiles[i].IsOpen()) {
+			} else if (all_tiles[neighbour].IsOpen()) {
 				opened_counter++;
 			}
 		}
@@ -137,12 +137,12 @@ std::vector<int32_t> DropShotCalculateShot::FindBestShot() {
 		}
 		float ratio = damaged_counter / normal_counter;
 		if (tile.State != 2) {
-			if (ball_state != 0) {
+			if (ball_state != 0) {// Charged or Super Charged ball states
 				if (ratio >= 1.2f && ball_state == 2 || ratio >= 4.0f && ball_state == 1 && !tile.IsOpen()) {
 					tiles_with_most_damaged_neighbors.push_back(tile.Id);
 				}
-			} else {
-				if (ratio >= 0.34f && ratio < 1.4f && tile.IsOpen()) {
+			} else { // Normal ball state
+				if (ratio >= 0.34f && ratio < 1.4f && tile.IsNormal()) {
 					tiles_with_most_damaged_neighbors.push_back(tile.Id);
 				}
 			}
@@ -172,12 +172,12 @@ std::vector<int32_t> DropShotCalculateShot::FindOpenNets() const {
 * @return A vector list of vectors.
 */
 std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetHexagonCornors(const DropShotTile& h) {
-	Vector point1 = { h.CenterPosition.X, h.CenterPosition.Y + 443.41f, 0.0f };
+	Vector point1 = { h.CenterPosition.X + 384.0f, h.CenterPosition.Y - 221.7f, 0.0f };
 	Vector point2 = { h.CenterPosition.X + 384.0f, h.CenterPosition.Y + 221.7f, 0.0f };
-	Vector point3 = { h.CenterPosition.X + 384.0f, h.CenterPosition.Y - 221.7f, 0.0f };
-	Vector point4 = { h.CenterPosition.X, h.CenterPosition.Y - 443.41f, 0.0f };
+	Vector point3 = { h.CenterPosition.X, h.CenterPosition.Y + 443.41f, 0.0f };
+	Vector point4 = { h.CenterPosition.X - 384.0f, h.CenterPosition.Y + 221.7f, 0.0f };
 	Vector point5 = { h.CenterPosition.X - 384.0f, h.CenterPosition.Y - 221.7f, 0.0f };
-	Vector point6 = { h.CenterPosition.X - 384.0f, h.CenterPosition.Y + 221.7f, 0.0f };
+	Vector point6 = { h.CenterPosition.X, h.CenterPosition.Y - 443.41f, 0.0f };
 
 	std::vector<std::pair<Vector, Vector>> cornors = {
 		{ point1, point2 },
