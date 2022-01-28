@@ -1,6 +1,6 @@
 # RocketLeague-Dropshot-Calculated-shot
 
-![image](https://user-images.githubusercontent.com/25397800/149423976-0067345c-bc1d-4a84-b66f-0ab90aac7b47.png)
+![Screenshot_9](https://user-images.githubusercontent.com/25397800/151294022-9d516137-1533-4a57-8ed7-40c23dc2ee34.png)
 
 [Mod download](https://bakkesplugins.com/plugins/view/306)
 
