@@ -179,7 +179,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Use</PrecompiledHeader>
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <ClCompile Include="VectorUtilities.cpp" />
+    <ClCompile Include="VectorUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\AppData\Roaming\bakkesmod\bakkesmod\bakkesmodsdk\include\bakkesmod\wrappers\GameObject\BreakOutActorPlatformWrapper.h" />
@@ -217,7 +217,7 @@
     <ClInclude Include="RenderingTools\Objects\Sphere.h" />
     <ClInclude Include="RenderingTools\Objects\Triangle.h" />
     <ClInclude Include="RenderingTools\Objects\VisualCamera.h" />
-    <ClInclude Include="VectorUtilities.h" />
+    <ClInclude Include="VectorUtils.h" />
     <ClInclude Include="version.h" />
   </ItemGroup>
   <ItemGroup>

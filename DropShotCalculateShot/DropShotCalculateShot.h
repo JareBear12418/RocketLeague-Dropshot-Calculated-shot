@@ -1,24 +1,23 @@
 #pragma once
-#include "DropShotTile.h"
+#pragma comment(lib, "pluginsdk.lib")
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 #include "bakkesmod/plugin/PluginSettingsWindow.h"
-#include <sstream>
-#include <chrono>
-#include "version.h"
+#include "DropShotTile.h"
+
+#include "Version.h"
+
 constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_MINOR) "." stringify(VERSION_PATCH) "." stringify(VERSION_BUILD);
 
-
-class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin/*, public BakkesMod::Plugin::PluginSettingsWindow*/ /*, public BakkesMod::Plugin::PluginWindow*/
-{
+class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin {
 	bool is_on_blue_team = false;
 	bool did_blue_score_last = false;
 	std::vector<DropShotTile> all_tiles;
-	std::vector<Vector> team_tiles; // The tiles to use depending on what team you are on
-	std::vector<int> tiles_to_avoid; // depends on selected team
-	int32_t ball_state = 0; // the balls current state
-	float ball_charge = 0.0f; // The balls current charge level
+	std::vector<Vector> team_tiles; // The tiles to use depending on what team you're on.
+	std::vector<int32_t> tiles_to_avoid; // The tiles to avoid depending on what team you're on.
+	int32_t ball_state = 0; // The balls current charge state.
 	Vector ballLocation;
+	float ball_charge = 0.0f; // The balls current charge level
 	float carVelocity;
 	float ball_speed;
 	float ballLastHitTime = 0.0f;
@@ -31,44 +30,19 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin/*, publi
 	virtual void onUnload();
 	void Render(CanvasWrapper canvas);
 
-	std::vector<int> GetTileNeighbours(const DropShotTile& tile) const;
-	std::vector<int> GetTileNeighbours(const DropShotTile& tile, int ball_state);
+	std::vector<int32_t> GetTileNeighbours(const DropShotTile& tile) const;
+	std::vector<int32_t> GetTileNeighbours(const DropShotTile& tile, int32_t ball_state) const;
 	void FindUpdatedTile(const Vector& ball_position);
 	DropShotTile FindTileFromPostion(const Vector& position);
 	bool DoesTileExist(const Vector& position);
 	void UpdateAllTiles();
-	std::vector<int> FindBestShot();
-	std::vector<int> FindOpenNets() const;
-	std::vector<std::vector<Vector>> GetHexagonCornors(const Vector& center_position);
+	int GetPlayerTeam();
+	std::vector<int32_t> FindBestShot();
+	std::vector<int32_t> FindOpenNets() const;
+	std::vector<std::pair<Vector, Vector>> GetHexagonCornors(const DropShotTile& h);
 	std::vector<Vector> GetHexagonConnectors(const DropShotTile& h);
-	std::vector<std::vector<Vector>> GetFilledHexagonCoordinates(const DropShotTile& h, const int numberOfLines);
+	std::vector<std::pair<Vector, Vector>> GetFilledHexagonCoordinates(const DropShotTile& h, const int numberOfLines);
 	std::string ConvertToString(float& value);
 	float CarVelocityTowardsBall(CarWrapper& car, BallWrapper& ball);
 	void ResetVariables();
-
-
-	// Inherited via PluginSettingsWindow
-	/*
-	void RenderSettings() override;
-	std::string GetPluginName() override;
-	void SetImGuiContext(uintptr_t ctx) override;
-	*/
-
-	// Inherited via PluginWindow
-	/*
-
-	bool isWindowOpen_ = false;
-	bool isMinimized_ = false;
-	std::string menuTitle_ = "DropShotCalculateShot";
-
-	virtual void Render() override;
-	virtual std::string GetMenuName() override;
-	virtual std::string GetMenuTitle() override;
-	virtual void SetImGuiContext(uintptr_t ctx) override;
-	virtual bool ShouldBlockInput() override;
-	virtual bool IsActiveOverlay() override;
-	virtual void OnOpen() override;
-	virtual void OnClose() override;
-
-	*/
 };

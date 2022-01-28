@@ -2,7 +2,7 @@
 #define LINMATH_H //Conflicts with linmath.h if we done declare this here
 #include "DropShotCalculateShot.h"
 #include "DropShotTile.h"
-#include "VectorUtilities.h"
+#include "VectorUtils.h"
 #include "RenderingTools/Objects/Frustum.h"
 #include "RenderingTools/Objects/Line.h"
 #include <algorithm> // used for avoiding certain tiles
@@ -25,9 +25,9 @@ auto currentTime = std::chrono::high_resolution_clock::now();
 * @param tile - Postion of the tile
 * @return A vector list of id's for each tile.
 */
-std::vector<int> DropShotCalculateShot::GetTileNeighbours(const DropShotTile& tile) const {
-	std::vector<int> neighbours;
-	int search_radius;
+std::vector<int32_t> DropShotCalculateShot::GetTileNeighbours(const DropShotTile& tile) const {
+	std::vector<int32_t> neighbours;
+	int32_t  search_radius;
 	if (ball_state == 1){
 		search_radius = 1000;
 	} else if (ball_state == 2) {
@@ -36,8 +36,8 @@ std::vector<int> DropShotCalculateShot::GetTileNeighbours(const DropShotTile& ti
 		return neighbours;
 	}
 	for (auto& h : all_tiles) {
-		if (DistanceTo(tile.center_position, h.center_position) < search_radius) {
-			neighbours.push_back(h.id);
+		if (VectorUtils::DistanceTo(tile.CenterPosition, h.CenterPosition) < search_radius) {
+			neighbours.push_back(h.Id);
 		}
 	}
 	return neighbours;
@@ -49,7 +49,8 @@ std::vector<int> DropShotCalculateShot::GetTileNeighbours(const DropShotTile& ti
 * @param ball_state the pre set state of the ball for simulating ahead.
 * @return A vector list of id's for each tile.
 */
-std::vector<int> DropShotCalculateShot::GetTileNeighbours(const DropShotTile& tile, int ball_state) {
+
+std::vector<int32_t> DropShotCalculateShot::GetTileNeighbours(const DropShotTile& tile, int32_t ball_state) const {
 	std::vector<int> neighbours;
 	int search_radius;
 	if (ball_state == 1) {
@@ -60,8 +61,8 @@ std::vector<int> DropShotCalculateShot::GetTileNeighbours(const DropShotTile& ti
 		return neighbours;
 	}
 	for (auto& h : all_tiles) {
-		if (DistanceTo(tile.center_position, h.center_position) < search_radius) {
-			neighbours.push_back(h.id);
+		if (VectorUtils::DistanceTo(tile.CenterPosition, h.CenterPosition) < search_radius) {
+			neighbours.push_back(h.Id);
 		}
 	}
 	return neighbours;
@@ -75,8 +76,8 @@ std::vector<int> DropShotCalculateShot::GetTileNeighbours(const DropShotTile& ti
  */
 DropShotTile DropShotCalculateShot::FindTileFromPostion(const Vector& position) {
 	for (auto& tile : all_tiles) {
-		std::vector<std::vector<Vector>> tile_corners = GetHexagonCornors(Vector{ tile.center_position.X, tile.center_position.Y, 0 });
-		if (IsPointInsidePolygon(position, tile_corners)) {
+		std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(tile);
+		if (VectorUtils::IsPointInsidePolygon(position, tile_corners)) {
 			return tile;
 		}
 	}
@@ -90,8 +91,8 @@ DropShotTile DropShotCalculateShot::FindTileFromPostion(const Vector& position) 
  */
 bool DropShotCalculateShot::DoesTileExist(const Vector& position) {
 	for (auto& tile : all_tiles) {
-		std::vector<std::vector<Vector>> tile_corners = GetHexagonCornors(Vector{ tile.center_position.X, tile.center_position.Y, 0 });
-		if (IsPointInsidePolygon(position, tile_corners)) {
+		std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(tile);
+		if (VectorUtils::IsPointInsidePolygon(position, tile_corners)) {
 			return true;
 		}
 	}
@@ -104,28 +105,29 @@ bool DropShotCalculateShot::DoesTileExist(const Vector& position) {
 * then that is a good shot, again depending on what state the ball is at.
 * @return A vector list of id's for each tile.
 */
-std::vector<int> DropShotCalculateShot::FindBestShot() {
-	std::vector<int> tiles_with_most_damaged_neighbors;
-	for (auto& tile : all_tiles) {
+std::vector<int32_t> DropShotCalculateShot::FindBestShot() {
+	std::vector<int32_t> tiles_with_most_damaged_neighbors;
+	for (const DropShotTile& tile : all_tiles) {
 		// We do this check because any outside tiles if the ball is not charged are a wasted shot
-		if ((std::find(tiles_to_avoid.begin(), tiles_to_avoid.end(), tile.id) != tiles_to_avoid.end()) && ball_state == 0) {
+		if ((std::find(tiles_to_avoid.begin(), tiles_to_avoid.end(), tile.Id) != tiles_to_avoid.end()) && ball_state == 0) {
 			continue;
 		}
-		std::vector<int> neighbours;
+		std::vector<int32_t> neighbours;
+
 		if (ball_state == 0) {
 			neighbours = GetTileNeighbours(tile, 1); // We need to act as the ball is charged with the 1
 		} else {
 			neighbours = GetTileNeighbours(tile);
 		}
-		float normal_counter = 0;
-		float damaged_counter = 0;
-		float opened_counter = 0; // Does nothing, but in case of future.
-		for (int neighbour : neighbours) {
-			if (all_tiles[neighbour].state == 0) {
+		float normal_counter = 0.0f;
+		float damaged_counter = 0.0f;
+		float opened_counter = 0.0f; // Does nothing, but in case of future.
+		for (int32_t i : neighbours) {
+			if (all_tiles[i].IsNormal()) {
 				normal_counter++;
-			} else if (all_tiles[neighbour].state == 1){
+			} else if (all_tiles[i].IsDamaged()) {
 				damaged_counter++;
-			} else if (all_tiles[neighbour].state == 2){
+			} else if (all_tiles[i].IsOpen()) {
 				opened_counter++;
 			}
 		}
@@ -134,14 +136,14 @@ std::vector<int> DropShotCalculateShot::FindBestShot() {
 			normal_counter = 1.0f;
 		}
 		float ratio = damaged_counter / normal_counter;
-		if (tile.state != 2) {
-			if (ball_state != 0) { // Charged or Super Charged ball states
-				if (ratio >= 0.6f && ball_state == 2 || ratio >= 4.0f && ball_state == 1 && tile.state != 2) {
-					tiles_with_most_damaged_neighbors.push_back(tile.id);
+		if (tile.State != 2) {
+			if (ball_state != 0) {
+				if (ratio >= 1.2f && ball_state == 2 || ratio >= 4.0f && ball_state == 1 && !tile.IsOpen()) {
+					tiles_with_most_damaged_neighbors.push_back(tile.Id);
 				}
-			} else { // Normal ball state
-				if (ratio >= 0.34f && ratio < 1.4f && tile.state != 1 && tile.state != 2) {
-					tiles_with_most_damaged_neighbors.push_back(tile.id);
+			} else {
+				if (ratio >= 0.34f && ratio < 1.4f && tile.IsOpen()) {
+					tiles_with_most_damaged_neighbors.push_back(tile.Id);
 				}
 			}
 		}
@@ -153,13 +155,15 @@ std::vector<int> DropShotCalculateShot::FindBestShot() {
 * Find all tiles that have a state of 2, or are open nets.
 * @return A vector list of id's for each tile.
 */
-std::vector<int> DropShotCalculateShot::FindOpenNets() const {
-	std::vector<int> tiles_with_most_opened_neighbors;
-	for (auto& tile : all_tiles) {
-		if (tile.state == 2) {
-			tiles_with_most_opened_neighbors.push_back(tile.id);
+std::vector<int32_t> DropShotCalculateShot::FindOpenNets() const {
+	std::vector<int32_t> tiles_with_most_opened_neighbors;
+
+	for (const DropShotTile& tile : all_tiles) {
+		if (tile.IsOpen()) {
+			tiles_with_most_opened_neighbors.push_back(tile.Id);
 		}
 	}
+
 	return tiles_with_most_opened_neighbors;
 }
 
@@ -167,24 +171,24 @@ std::vector<int> DropShotCalculateShot::FindOpenNets() const {
 * @param h a dropshot tile
 * @return A vector list of vectors.
 */
-std::vector<std::vector<Vector>> DropShotCalculateShot::GetHexagonCornors(const Vector& center_position) {
-	Vector point1 = { center_position.X + 384.0f, center_position.Y - 221.7f, 0.0f };
-	Vector point2 = { center_position.X + 384.0f, center_position.Y + 221.7f, 0.0f };
-	Vector point3 = { center_position.X, center_position.Y + 443.41f, 0.0f };
-	Vector point4 = { center_position.X - 384.0f, center_position.Y + 221.7f, 0.0f };
-	Vector point5 = { center_position.X - 384.0f, center_position.Y - 221.7f, 0.0f };
-	Vector point6 = { center_position.X, center_position.Y - 443.41f, 0.0f };
+std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetHexagonCornors(const DropShotTile& h) {
+	Vector point1 = { h.CenterPosition.X, h.CenterPosition.Y + 443.41f, 0.0f };
+	Vector point2 = { h.CenterPosition.X + 384.0f, h.CenterPosition.Y + 221.7f, 0.0f };
+	Vector point3 = { h.CenterPosition.X + 384.0f, h.CenterPosition.Y - 221.7f, 0.0f };
+	Vector point4 = { h.CenterPosition.X, h.CenterPosition.Y - 443.41f, 0.0f };
+	Vector point5 = { h.CenterPosition.X - 384.0f, h.CenterPosition.Y - 221.7f, 0.0f };
+	Vector point6 = { h.CenterPosition.X - 384.0f, h.CenterPosition.Y + 221.7f, 0.0f };
 
-
-	std::vector<std::vector<Vector>> corners = {
-		{{point1}, {point2}},
-		{{point2}, {point3}},
-		{{point3}, {point4}},
-		{{point4}, {point5}},
-		{{point5}, {point6}},
-		{{point6}, {point1}}
+	std::vector<std::pair<Vector, Vector>> cornors = {
+		{ point1, point2 },
+		{ point2, point3 },
+		{ point3, point4 },
+		{ point4, point5 },
+		{ point5, point6 },
+		{ point6, point1 }
 	};
-	return corners;
+
+	return cornors;
 }
 
 /**
@@ -194,12 +198,12 @@ std::vector<std::vector<Vector>> DropShotCalculateShot::GetHexagonCornors(const 
  * \return
  */
 std::vector<Vector> DropShotCalculateShot::GetHexagonConnectors(const DropShotTile& h) {
-	Vector point1 = RotateLine(h.center_position, 768.0f, 0.0f*(3.141592653f/180.0f));
-	Vector point2 = RotateLine(h.center_position, 768.0f, 60.0f*(3.141592653f/180.0f));
-	Vector point3 = RotateLine(h.center_position, 768.0f, 120.0f*(3.141592653f/180.0f));
-	Vector point4 = RotateLine(h.center_position, 768.0f, 180.0f*(3.141592653f/180.0f));
-	Vector point5 = RotateLine(h.center_position, 768.0f, 240.0f*(3.141592653f/180.0f));
-	Vector point6 = RotateLine(h.center_position, 768.0f, 300.0f*(3.141592653f/180.0f));
+	Vector point1 = VectorUtils::RotateLine(h.CenterPosition, 768.0f, 0.0f*(3.141592653f/180.0f));
+	Vector point2 = VectorUtils::RotateLine(h.CenterPosition, 768.0f, 60.0f*(3.141592653f/180.0f));
+	Vector point3 = VectorUtils::RotateLine(h.CenterPosition, 768.0f, 120.0f*(3.141592653f/180.0f));
+	Vector point4 = VectorUtils::RotateLine(h.CenterPosition, 768.0f, 180.0f*(3.141592653f/180.0f));
+	Vector point5 = VectorUtils::RotateLine(h.CenterPosition, 768.0f, 240.0f*(3.141592653f/180.0f));
+	Vector point6 = VectorUtils::RotateLine(h.CenterPosition, 768.0f, 300.0f*(3.141592653f/180.0f));
 	std::vector<Vector> new_positions = {
 		{point1},
 		{point2},
@@ -218,15 +222,15 @@ std::vector<Vector> DropShotCalculateShot::GetHexagonConnectors(const DropShotTi
  * \param numberOfLines
  * \return
  */
-std::vector<std::vector<Vector>> DropShotCalculateShot::GetFilledHexagonCoordinates(const DropShotTile& h, const int numberOfLines) {
+std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetFilledHexagonCoordinates(const DropShotTile& h, const int numberOfLines) {
 	float tileHeight = 886.82f;
 	float triangleHeight = 221.705f;
 	float width = 768.0f;
 	float spacing = tileHeight / numberOfLines;
-	float centerX = h.center_position.X;
-	float centerY = h.center_position.Y;
+	float centerX = h.CenterPosition.X;
+	float centerY = h.CenterPosition.Y;
 
-	std::vector<std::vector<Vector>> points = { };
+	std::vector<std::pair<Vector, Vector>> points = { };
 
 	float x1 = 0.0f;
 	float x2 = 0.0f;
@@ -260,32 +264,42 @@ std::vector<std::vector<Vector>> DropShotCalculateShot::GetFilledHexagonCoordina
  */
 float DropShotCalculateShot::CarVelocityTowardsBall(CarWrapper& car, BallWrapper& ball) {
 	float carVelocityTowardsBall = Vector{ ball.GetVelocity().X - car.GetVelocity().X, ball.GetVelocity().Y - car.GetVelocity().Y, ball.GetVelocity().Z - car.GetVelocity().Z }.magnitude();
-	if (distanceFromCarToBall < DistanceTo(car.GetLocation(), ball.GetLocation())) {
+	if (distanceFromCarToBall < VectorUtils::DistanceTo(car.GetLocation(), ball.GetLocation())) {
 		carVelocityTowardsBall *= -1;
 	}
 	return carVelocityTowardsBall;
 }
 
+int DropShotCalculateShot::GetPlayerTeam() {
+	auto pc = gameWrapper->GetCurrentGameState();
+	// just to make sure you're in a match first
+	if (!pc) return -1;
+	auto pri = pc.GetLocalPrimaryPlayer();
+	if (!pri) return -1;
+
+	return pri.GetTeamNum2();
+}
 /**
 * Resets all the global variables, i don't know if you should change this but this works, and it took long enough to make it work properly, This doesnt work half the time still but its cool
 */
 void DropShotCalculateShot::ResetVariables() {
-	ballHitTime = std::chrono::high_resolution_clock::now();
 	team_tiles.clear();
 	tiles_to_avoid.clear();
 	all_tiles.clear();
+
 	if (is_on_blue_team) {
-		tiles_to_avoid = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 24, 25, 35, 36, 45, 46, 54, 55, 62, 63, 64, 65, 66, 67, 68, 69};
-		team_tiles = GetOrangeTiles();
+		tiles_to_avoid = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 24, 25, 35, 36, 45, 46, 54, 55, 62, 63, 64, 65, 66, 67, 68, 69 };
+		team_tiles = OrangeTiles;
 	} else {
-		tiles_to_avoid = {0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 23, 24, 33, 34, 44, 45, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69};
-		team_tiles = GetBlueTiles();
+		tiles_to_avoid = { 0, 1, 2, 3, 4, 5, 6, 7, 14, 15, 23, 24, 33, 34, 44, 45, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69 };
+		team_tiles = BlueTiles;
 	}
-	for (int i = 0; i < 70; i++) {
-		DropShotTile h{i, 0, {team_tiles[i].X, team_tiles[i].Y}};
-		all_tiles.push_back(h);
+
+	for (int32_t i = 0; i < team_tiles.size(); i++) {
+		all_tiles.push_back(DropShotTile(i, { team_tiles[i].X, team_tiles[i].Y }));
 	}
-	LOG("Variables reset");
+
+	cvarManager->log("Variables reset");
 }
 
 /**
@@ -293,12 +307,16 @@ void DropShotCalculateShot::ResetVariables() {
  *
  */
 void DropShotCalculateShot::UpdateAllTiles() {
+	auto pc = gameWrapper->GetCurrentGameState();
+	// just to make sure you're in a match first
+	if (!pc) return;
 	static auto platforms = BreakOutActorPlatformWrapper::GetAllPlatforms();
+	if (all_tiles.empty()) { return; }
 	for (auto platform : platforms) {
 		if (!platform) { return; }
 		for (DropShotTile& tile : all_tiles) {
-			if (DistanceTo(platform.GetLocation(), Vector{ tile.center_position.X , tile.center_position.Y, 0 }) < 100) {
-				tile.state = platform.GetDamagestate().State;
+			if (VectorUtils::DistanceTo(platform.GetLocation(), Vector{ tile.CenterPosition.X , tile.CenterPosition.Y, 0 }) < 100) {
+				tile.State = platform.GetDamagestate().State;
 			}
 		}
 	}
@@ -307,10 +325,9 @@ void DropShotCalculateShot::UpdateAllTiles() {
 void DropShotCalculateShot::onLoad() {
 	_globalCvarManager = cvarManager;
 	cvarManager->log("Plugin loaded!");
-
 	gameWrapper->RegisterDrawable(bind(&DropShotCalculateShot::Render, this, std::placeholders::_1));
 	ResetVariables();
-	UpdateAllTiles();
+	//UpdateAllTiles();
 
 	//Function TAGame.Ball_Breakout_TA.GetDamageIndexForForce
 	struct GetDamageIndexForForce {
@@ -350,7 +367,15 @@ void DropShotCalculateShot::onLoad() {
 		UpdateAllTiles();
 		ballDidDamageTime = std::chrono::high_resolution_clock::now();
 	});
-
+	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.GameEvent_Soccar_TA.Destroyed",
+													  [this](BallWrapper caller,
+													  void* params,
+													  std::string eventname) {
+		team_tiles.clear();
+		tiles_to_avoid.clear();
+		all_tiles.clear();
+		cvarManager->log("LEFT MATCH");
+	});
 	//Function TAGame.Ball_Breakout_TA.SetDamageIndex
 	struct SetDamageIndexParams {
 		int32_t InIndex;
@@ -360,72 +385,80 @@ void DropShotCalculateShot::onLoad() {
 													  [this](BallWrapper caller,
 													  void* params,
 													  std::string eventname) {
-		SetDamageIndexParams* param = (SetDamageIndexParams*)params;
-		int newIndex = param->InIndex;
-		if (newIndex == 0) {
-			gameWrapper->SetTimeout([this, newIndex](GameWrapper* gw) {
-				ball_charge = 0.0f;
-				ball_state = newIndex;
+		int32_t inIndex = *reinterpret_cast<int32_t*>(params);
+		if (inIndex == 0) {
+			gameWrapper->SetTimeout([this, inIndex] (GameWrapper* gw) {
+				ball_state = inIndex;
 			}, 0.15f);
 		} else {
-			ball_state = newIndex;
+			ball_state = inIndex;
 		}
 	});
 
-	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function Engine.PlayerReplicationInfo.OnTeamChanged",
-													  [this](BallWrapper caller,
-													  void* params,
-													  std::string eventname) {
+	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function Engine.PlayerReplicationInfo.OnTeamChanged", [this] (BallWrapper caller, void* params, std::string eventname) {
 		ServerWrapper sw = gameWrapper->GetCurrentGameState();
-		if (!sw) { return; }
-
-		auto primary = sw.GetLocalPrimaryPlayer();
-
-		if (primary.IsNull()) { return; }
-
-		auto primaryPri = primary.GetPRI();
-
-		if (primaryPri.IsNull()) { return; }
-
-		int teamNumber = primaryPri.GetTeamNum2();
-
-		if (teamNumber == 0 && !is_on_blue_team) {
-			LOG("Changed team to blue team");
-			is_on_blue_team = true;
-			ResetVariables();
-		} else if (teamNumber == 1 && is_on_blue_team) {
-			LOG("Changed team to orange team");
-			is_on_blue_team = false;
-			ResetVariables();
-		} else {
-			LOG("Still on the same team. is on blue team: {}", is_on_blue_team);
+		if (sw) {
+			PlayerControllerWrapper primary = sw.GetLocalPrimaryPlayer();
+			if (primary) {
+				PriWrapper primaryPri = primary.GetPRI();
+				if (primaryPri) {
+					int32_t teamNumber = primaryPri.GetTeamNum2();
+					if (teamNumber == 0 && !is_on_blue_team) {
+						cvarManager->log("Changed team to blue team");
+						is_on_blue_team = true;
+						ResetVariables();
+						UpdateAllTiles();
+					} else if (teamNumber == 1 && is_on_blue_team) {
+						cvarManager->log("Changed team to orange team");
+						is_on_blue_team = false;
+						ResetVariables();
+						UpdateAllTiles();
+					} else {
+						cvarManager->log("Still on the same team, is on blue team: " + std::to_string(is_on_blue_team));
+					}
+				}
+			}
 		}
 	});
 
-	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.GameEvent_Soccar_TA.EventGoalScored",
+	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.GameMetrics_TA.JoinTeam",
 													  [this](BallWrapper caller,
 													  void* params,
 													  std::string eventname) {
-		LOG("X: {} Y: {}", ballLocation.X, ballLocation.Y);
+		cvarManager->log("TEAM CHANGED via JoinTeam");
+		int teamNumber = GetPlayerTeam();
+		if (teamNumber == -1) { return; }
+		if (teamNumber == 0) {
+			cvarManager->log("Changed team to blue team");
+			is_on_blue_team = true;
+		} else if (teamNumber == 1) {
+			cvarManager->log("Changed team to orange team");
+			is_on_blue_team = false;
+		}
+		ResetVariables();
+	});
+	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.GameEvent_Soccar_TA.EventGoalScored", [this] (BallWrapper caller, void* params, std::string eventname) {
+		cvarManager->log("Ball location (XYZ): " + std::to_string(ballLocation.X) + ", " + std::to_string(ballLocation.Y) + ", " + std::to_string(ballLocation.Z));
 		if (ballLocation.Y > 0 && is_on_blue_team) {
-			LOG("BLUE SCORED");
+			cvarManager->log("BLUE SCORED");
 			did_blue_score_last = true;
 			ResetVariables();
 		} else if (ballLocation.Y < 0 && !is_on_blue_team) {
-			LOG("ORANGE SCORED");
+			cvarManager->log("ORANGE SCORED");
 			did_blue_score_last = false;
 			ResetVariables();
 		}
 	});
 
-	gameWrapper->HookEvent("Function GameEvent_TA.Countdown.BeginState",
+	gameWrapper->HookEvent("Function GameEvent_Soccar_TA.Active.StartRound",
 						   [this](std::string eventName) {
+
 		gameWrapper->SetTimeout([this] (GameWrapper* gw) {
 			if (is_on_blue_team && did_blue_score_last && ballLocation.Y > 0) {
-				LOG("You are on blue team and blue scored");
+				cvarManager->log("You are on the blue team and orange scored");
 				ResetVariables();
 			} else if (!is_on_blue_team && !did_blue_score_last && ballLocation.Y < 0) {
-				LOG("You are on orange team and orange scored");
+				cvarManager->log("You are on the orange team and orange scored");
 				ResetVariables();
 			}
 		}, 0.15f);
@@ -436,26 +469,25 @@ void DropShotCalculateShot::onUnload() {}
 
 void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
-	if (gameWrapper->IsInOnlineGame()) { return; }
 	if (!server) { return; }
 	BallWrapper ball = server.GetBall();
-	if (!ball || !ball.IsDropshotBall()) { return; }
+	if (!ball) { return; }
 	CarWrapper car = gameWrapper->GetLocalCar();
 	if (!car) { return; }
-	carVelocity = car.GetVelocity().magnitude();
-	auto camera = gameWrapper->GetCamera();
-	if (camera.IsNull()) { return; }
+	CameraWrapper camera = gameWrapper->GetCamera();
+	if (!camera) { return; }
 	ArrayWrapper<TeamWrapper> teams = server.GetTeams();
 	if (teams.IsNull()) { return; }
-	int team_number = 0;
-	if (is_on_blue_team) {
-		team_number = 0;
-	} else {
-		team_number = 1;
-	}
+
+	int32_t team_number = (is_on_blue_team ? 0 : 1);
 	TeamWrapper team = teams.Get(team_number);
 	if (!team) { return; }
-	RT::Frustum frust{canvas, camera};
+
+	if (ball.GetLocation().X != 0.0 && ball.GetLocation().Y != 0.0 && ball.GetLocation().Z >= 0) {
+		ballLocation = { ball.GetLocation().X, ball.GetLocation().Y, ball.GetLocation().Z };
+	}
+
+	RT::Frustum frust{ canvas, camera };
 
 	int canvas_y = 1000-(25*9);
 
@@ -489,7 +521,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	//-----------------DRAW CAR VELOCITY-----------------
 	currentTime = std::chrono::high_resolution_clock::now();
 	if (((currentTime - lastDistanceCheckTime).count() / 1000000000.0f) > .2f) {
-		distanceFromCarToBall = DistanceTo(car.GetLocation(), ball.GetLocation());
+		distanceFromCarToBall = VectorUtils::DistanceTo(car.GetLocation(), ball.GetLocation());
 		lastDistanceCheckTime = std::chrono::high_resolution_clock::now();
 	}
 	float carVelocityTowardsBall = CarVelocityTowardsBall(car, ball);
@@ -564,56 +596,57 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 		ballLocation = {ball.GetLocation().X, ball.GetLocation().Y, ball.GetLocation().Z};
 	}
 	//-----------------FIND BEST SHOT-----------------
-	std::vector<int> best_shot_tiles = FindBestShot();
-	for (int best_shot_tile : best_shot_tiles) {
+	std::vector<int32_t> best_shot_tiles = FindBestShot();
+	for (int32_t  best_shot_tile : best_shot_tiles) {
 		if (!best_shot_tile) { return; }
 		const DropShotTile& h = all_tiles[best_shot_tile];
-		float distanceFromPlayer = DistanceTo(car.GetLocation(), Vector{ h.center_position.X, h.center_position.Y, 0 });
+		float distanceFromPlayer = VectorUtils::DistanceTo(car.GetLocation(), Vector{ h.CenterPosition.X, h.CenterPosition.Y, 0 });
 		// Any more lines can cause FPS drop, so if you have beefy pc and care for some crisp hexagons, have at it.
 		int numberOfLines = 100000 / (int)distanceFromPlayer;
 		if (numberOfLines >= 50) {
 			numberOfLines = 50;
 		}
-		if (h.state != 2) { // When this is false, its an opened tile
+		if (!h.IsOpen()) { // When this is false, its an opened tile
 			std::vector<Vector> connectors = GetHexagonConnectors(h);
-			std::vector<std::vector<Vector>> tile_corners = GetHexagonCornors(Vector{ h.center_position.X , h.center_position.Y, 0});
-			std::vector<std::vector<Vector>> tile_fill_coordinates= GetFilledHexagonCoordinates(h, numberOfLines);
+			std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h);
+
+			std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(h, numberOfLines);
 			canvas.SetColor(0, 208, 0, 45);
 			for (int i = 0; i < tile_fill_coordinates.size(); i++) {
-				RT::Line(tile_fill_coordinates[i][0], tile_fill_coordinates[i][1], 2.0f).DrawWithinFrustum(canvas, frust);
+				RT::Line(tile_fill_coordinates[i].first, tile_fill_coordinates[i].second, 2.0f).DrawWithinFrustum(canvas, frust);
 			}
 			canvas.SetColor(0, 208, 0, 130);
 			for (int i = 0; i < tile_corners.size(); i++) {
 				if (DoesTileExist(connectors[i])) { // Very important do not remove, this is to ensure the program doesn't look for tiles that are outside of the arena. When an edge tile gets 'opened' it looks for tiles outside there.
-					if (!(std::find(best_shot_tiles.begin(), best_shot_tiles.end(), FindTileFromPostion(connectors[i]).id) != best_shot_tiles.end())) {
-						RT::Line(tile_corners[i][0], tile_corners[i][1], 3.0f).DrawWithinFrustum(canvas, frust);
+					if (!(std::find(best_shot_tiles.begin(), best_shot_tiles.end(), FindTileFromPostion(connectors[i]).Id) != best_shot_tiles.end())) {
+						RT::Line(tile_corners[i].first, tile_corners[i].second, 3.0f).DrawWithinFrustum(canvas, frust);
 					}
 				}
 			}
 		}
 	}
 	//-----------------FIND OPEN NETS-----------------
-	std::vector<int> open_nets = FindOpenNets();
-	for (int open_net : open_nets) {
+	std::vector<int32_t> open_nets = FindOpenNets();
+	for (int32_t  open_net : open_nets) {
 		const DropShotTile& h = all_tiles[open_net];
-		float distanceFromPlayer = DistanceTo(car.GetLocation(), Vector{ h.center_position.X, h.center_position.Y, 0 });
+		float distanceFromPlayer = VectorUtils::DistanceTo(car.GetLocation(), Vector{ h.CenterPosition.X, h.CenterPosition.Y, 0 });
 		// Any more lines can cause FPS drop, so if you have beefy pc and care for some crisp hexagons, have at it.
 		int numberOfLines = 100000 / (int)distanceFromPlayer;
 		if (numberOfLines >= 50) {
 			numberOfLines = 50;
 		}
 		std::vector<Vector> connectors = GetHexagonConnectors(h);
-		std::vector<std::vector<Vector>> tile_corners = GetHexagonCornors(Vector{ h.center_position.X , h.center_position.Y, 0 });
-		std::vector<std::vector<Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(h, numberOfLines);
+		std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h);
+		std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(h, numberOfLines);
 		for (int i = 0; i < tile_corners.size(); i++) {
 			if (DoesTileExist(connectors[i])) { // Very important do not remove, this is to ensure the program doesn't look for tiles that are outside of the arena. When an edge tile gets 'opened' it looks for tiles outside there.
 				canvas.SetColor(team.GetPrimaryColor().R * 255, team.GetPrimaryColor().G * 255, team.GetPrimaryColor().B * 255, 20);
 				for (int i = 0; i < tile_fill_coordinates.size(); i++) {
-					RT::Line(tile_fill_coordinates[i][0], tile_fill_coordinates[i][1], 2.0f).DrawWithinFrustum(canvas, frust);
+					RT::Line(tile_fill_coordinates[i].first, tile_fill_coordinates[i].second, 2.0f).DrawWithinFrustum(canvas, frust);
 				}
 				canvas.SetColor(team.GetPrimaryColor().R * 255, team.GetPrimaryColor().G * 255, team.GetPrimaryColor().B * 255, 150);
-				if (!(std::find(open_nets.begin(), open_nets.end(), FindTileFromPostion(connectors[i]).id) != open_nets.end())) {
-					RT::Line(tile_corners[i][0], tile_corners[i][1], 3.0f).DrawWithinFrustum(canvas, frust);
+				if (!(std::find(open_nets.begin(), open_nets.end(), FindTileFromPostion(connectors[i]).Id) != open_nets.end())) {
+					RT::Line(tile_corners[i].first, tile_corners[i].second, 3.0f).DrawWithinFrustum(canvas, frust);
 				}
 			}
 		}

@@ -129,7 +129,7 @@
     <ClCompile Include="DropShotTile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="VectorUtilities.cpp">
+    <ClCompile Include="VectorUtils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -239,7 +239,7 @@
     <ClInclude Include="DropShotTile.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="VectorUtilities.h">
+    <ClInclude Include="VectorUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\..\AppData\Roaming\bakkesmod\bakkesmod\bakkesmodsdk\include\bakkesmod\wrappers\GameObject\BreakOutActorPlatformWrapper.h">
