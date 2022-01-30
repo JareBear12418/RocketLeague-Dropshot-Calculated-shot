@@ -12,14 +12,14 @@ constexpr auto plugin_version = stringify(VERSION_MAJOR) "." stringify(VERSION_M
 class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin {
 	bool is_on_blue_team = false;
 	bool did_blue_score_last = false;
-	std::vector<DropShotTile> all_tiles;
 	std::vector<Vector> team_tiles; // The tiles to use depending on what team you're on.
 	std::vector<int32_t> tiles_to_avoid; // The tiles to avoid depending on what team you're on.
+	std::vector<DropShotTile> all_tiles;
 	int32_t ball_state = 0; // The balls current charge state.
 	Vector ballLocation;
 	float ball_charge = 0.0f; // The balls current charge level
-	float carVelocity;
-	float ball_speed;
+	float carVelocity = 0.0f;
+	float ball_speed = 0.0f;
 	float ballLastHitTime = 0.0f;
 	float ballhitDelta = 0.0f;
 	float remainingEnergy;
@@ -35,6 +35,8 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin {
 	void FindUpdatedTile(const Vector& ball_position);
 	DropShotTile FindTileFromPostion(const Vector& position);
 	bool DoesTileExist(const Vector& position);
+
+	double DistanceTo(const Vector p1, const Vector p2);
 	void UpdateAllTiles();
 	int GetPlayerTeam();
 	std::vector<int32_t> FindBestShot();

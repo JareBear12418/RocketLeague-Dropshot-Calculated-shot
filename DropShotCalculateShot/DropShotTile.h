@@ -8,23 +8,24 @@ enum class TileStates : int32_t {
 };
 
 class DropShotTile {
-public:
-	int32_t Id; // The tiles internal id.
-	int32_t State; // The tiles current state.
-	Vector2F CenterPosition; // The center position of the tile.
+	public:
+		int32_t Id; // The tiles internal id.
+		int32_t State; // The tiles current state.
+		Vector2F CenterPosition; // The center position of the tile.
 
-public:
-	DropShotTile(int32_t id, const Vector2F& centerPosition);
-	DropShotTile(int32_t id, int32_t state, const Vector2F& centerPosition);
-	~DropShotTile();
+	public:
+		DropShotTile(const int32_t id, const Vector2F& centerPosition);
+		DropShotTile(int32_t id, int32_t state, const Vector2F& centerPosition);
+		~DropShotTile();
 
-public:
-	bool IsNormal() const;
-	bool IsDamaged() const;
-	bool IsOpen() const;
-	void IncreaseState();
+	public:
+		bool IsNormal() const;
+		bool IsDamaged() const;
+		bool IsOpen() const;
+		void IncreaseState();
 };
 
+// I would advice anyone to use the new BreakOutWrapper instead and figure out the ordering of all the tiles that way, this whole system has been a huge pain.
 static inline std::vector<Vector> OrangeTiles = {
 	{ 4608.0f, 128.0f, 0.0f },
 	{ 3840.0f, 128.0f, 0.0f },

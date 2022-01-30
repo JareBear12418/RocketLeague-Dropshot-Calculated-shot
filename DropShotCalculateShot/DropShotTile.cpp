@@ -1,12 +1,10 @@
 ﻿#include "pch.h"
 #include "DropShotTile.h"
 
-DropShotTile::DropShotTile(int32_t id, const Vector2F& centerPosition)
-	: Id(id), State(static_cast<int32_t>(TileStates::Normal)), CenterPosition(centerPosition) {
+DropShotTile::DropShotTile(const int32_t id, const Vector2F& centerPosition): Id(id), State(static_cast<int32_t>(TileStates::Normal)), CenterPosition(centerPosition) {
 }
 
-DropShotTile::DropShotTile(int32_t id, int32_t state, const Vector2F& centerPosition)
-	: Id(id), State(state), CenterPosition(centerPosition) {
+DropShotTile::DropShotTile(int32_t id, int32_t state, const Vector2F& centerPosition): Id(id), State(state), CenterPosition(centerPosition) {
 }
 
 DropShotTile::~DropShotTile() { }
@@ -20,10 +18,10 @@ bool DropShotTile::IsDamaged() const {
 }
 
 // > 2 because of reasons... (idk ask Jare -ItsBranK)
+// That's not needed anymore, im scared to change this, so I'll see if ItsBranK will ;) - JareBear
 bool DropShotTile::IsOpen() const {
 	return (State > static_cast<int32_t>(TileStates::Open) || static_cast<TileStates>(State) == TileStates::Open);
 }
-
 void DropShotTile::IncreaseState() {
 	if (IsNormal()) {
 		State = static_cast<int32_t>(TileStates::Damaged);

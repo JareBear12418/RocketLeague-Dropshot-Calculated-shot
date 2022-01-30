@@ -81,7 +81,7 @@ DropShotTile DropShotCalculateShot::FindTileFromPostion(const Vector& position) 
 			return tile;
 		}
 	}
-}
+} // Not all control paths return a value, yes, DoesTileExist() is reponsible to make sure that doesn't happen as its always run (when needed) ahead of this function.
 
 /**
  * .Checks if there is a tile given a vector location.
@@ -212,6 +212,7 @@ std::vector<Vector> DropShotCalculateShot::GetHexagonConnectors(const DropShotTi
 		{point5},
 		{point6}
 	};
+
 	return new_positions;
 }
 
@@ -223,14 +224,14 @@ std::vector<Vector> DropShotCalculateShot::GetHexagonConnectors(const DropShotTi
  * \return
  */
 std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetFilledHexagonCoordinates(const DropShotTile& h, const int numberOfLines) {
-	float tileHeight = 886.82f;
-	float triangleHeight = 221.705f;
-	float width = 768.0f;
-	float spacing = tileHeight / numberOfLines;
-	float centerX = h.CenterPosition.X;
-	float centerY = h.CenterPosition.Y;
+	const float tileHeight = 886.82f;
+	const float triangleHeight = 221.705f;
+	const float width = 768.0f;
+	const float spacing = tileHeight / numberOfLines;
+	const float centerX = h.CenterPosition.X;
+	const float centerY = h.CenterPosition.Y;
 
-	std::vector<std::pair<Vector, Vector>> points = { };
+	std::vector<std::pair<Vector, Vector>> points;
 
 	float x1 = 0.0f;
 	float x2 = 0.0f;
@@ -256,7 +257,7 @@ std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetFilledHexagonCo
 }
 
 /**
- * .Calculates how fast the car is approaching the ball, taking into account how fast the ball is approaching the car. This is responsible for getting the coordinates to fix a hexagonal shape.
+ * .Calculates how fast the car is approaching the ball, taking into account how fast the ball is approaching the car.
  *
  * \param car
  * \param ball
@@ -269,7 +270,11 @@ float DropShotCalculateShot::CarVelocityTowardsBall(CarWrapper& car, BallWrapper
 	}
 	return carVelocityTowardsBall;
 }
-
+/**
+ * .Thanks Martinn - JareBear
+ *
+ * \return
+ */
 int DropShotCalculateShot::GetPlayerTeam() {
 	auto pc = gameWrapper->GetCurrentGameState();
 	// just to make sure you're in a match first
@@ -286,6 +291,7 @@ void DropShotCalculateShot::ResetVariables() {
 	team_tiles.clear();
 	tiles_to_avoid.clear();
 	all_tiles.clear();
+	ball_charge = 0.0f;
 
 	if (is_on_blue_team) {
 		tiles_to_avoid = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 24, 25, 35, 36, 45, 46, 54, 55, 62, 63, 64, 65, 66, 67, 68, 69 };
@@ -296,12 +302,11 @@ void DropShotCalculateShot::ResetVariables() {
 	}
 
 	for (int32_t i = 0; i < team_tiles.size(); i++) {
-		all_tiles.push_back(DropShotTile(i, { team_tiles[i].X, team_tiles[i].Y }));
+		all_tiles.push_back(DropShotTile(i, Vector2F{ team_tiles[i].X, team_tiles[i].Y }));
 	}
 
 	cvarManager->log("Variables reset");
 }
-
 /**
  * .Updates all tile states thanks to the new DropShotWrapper :)
  *
@@ -310,12 +315,11 @@ void DropShotCalculateShot::UpdateAllTiles() {
 	auto pc = gameWrapper->GetCurrentGameState();
 	// just to make sure you're in a match first
 	if (!pc) return;
-	static auto platforms = BreakOutActorPlatformWrapper::GetAllPlatforms();
-	if (all_tiles.empty()) { return; }
+	auto platforms = BreakOutActorPlatformWrapper::GetAllPlatforms();
 	for (auto platform : platforms) {
 		if (!platform) { return; }
 		for (DropShotTile& tile : all_tiles) {
-			if (VectorUtils::DistanceTo(platform.GetLocation(), Vector{ tile.CenterPosition.X , tile.CenterPosition.Y, 0 }) < 100) {
+			if (VectorUtils::DistanceTo(platform.GetLocation(), Vector{ tile.CenterPosition.X , tile.CenterPosition.Y, 0 }) < 100.0) {
 				tile.State = platform.GetDamagestate().State;
 			}
 		}
@@ -365,6 +369,7 @@ void DropShotCalculateShot::onLoad() {
 													  std::string eventname) {
 		EventAppliedDamageParams* param = (EventAppliedDamageParams*)params;
 		UpdateAllTiles();
+		ball_charge = 0.0f;
 		ballDidDamageTime = std::chrono::high_resolution_clock::now();
 	});
 	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.GameEvent_Soccar_TA.Destroyed",
@@ -387,6 +392,7 @@ void DropShotCalculateShot::onLoad() {
 													  std::string eventname) {
 		int32_t inIndex = *reinterpret_cast<int32_t*>(params);
 		if (inIndex == 0) {
+			// We need to do this delay for a reason I forgot, But I know it doesn't matter because the ball state can't change quicker than 0.2 seconds.
 			gameWrapper->SetTimeout([this, inIndex] (GameWrapper* gw) {
 				ball_state = inIndex;
 			}, 0.15f);
@@ -406,16 +412,12 @@ void DropShotCalculateShot::onLoad() {
 					if (teamNumber == 0 && !is_on_blue_team) {
 						cvarManager->log("Changed team to blue team");
 						is_on_blue_team = true;
-						ResetVariables();
-						UpdateAllTiles();
 					} else if (teamNumber == 1 && is_on_blue_team) {
 						cvarManager->log("Changed team to orange team");
 						is_on_blue_team = false;
-						ResetVariables();
-						UpdateAllTiles();
-					} else {
-						cvarManager->log("Still on the same team, is on blue team: " + std::to_string(is_on_blue_team));
 					}
+					ResetVariables();
+					UpdateAllTiles();
 				}
 			}
 		}
@@ -453,13 +455,14 @@ void DropShotCalculateShot::onLoad() {
 	gameWrapper->HookEvent("Function GameEvent_Soccar_TA.Active.StartRound",
 						   [this](std::string eventName) {
 
+		ballHitTime = std::chrono::high_resolution_clock::now();
 		gameWrapper->SetTimeout([this] (GameWrapper* gw) {
 			if (is_on_blue_team && did_blue_score_last && ballLocation.Y > 0) {
+				ResetVariables();
 				cvarManager->log("You are on the blue team and orange scored");
-				ResetVariables();
 			} else if (!is_on_blue_team && !did_blue_score_last && ballLocation.Y < 0) {
-				cvarManager->log("You are on the orange team and orange scored");
 				ResetVariables();
+				cvarManager->log("You are on the orange team and orange scored");
 			}
 		}, 0.15f);
 	});
@@ -471,7 +474,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	ServerWrapper server = gameWrapper->GetCurrentGameState();
 	if (!server) { return; }
 	BallWrapper ball = server.GetBall();
-	if (!ball) { return; }
+	if (!ball || !ball.IsDropshotBall()) { return; }
 	CarWrapper car = gameWrapper->GetLocalCar();
 	if (!car) { return; }
 	CameraWrapper camera = gameWrapper->GetCamera();
@@ -505,7 +508,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	canvas_y += 25;
 	//-----------------DRAW BALLS CHARGE-----------------
 	canvas.SetPosition(Vector2{ 0, canvas_y });
-	canvas.DrawString("Current energy: " + std::to_string((int)ball_charge), 2.0, 2.0);
+	canvas.DrawString("Balls current charge: " + std::to_string((int)ball_charge), 2.0, 2.0);
 
 	canvas_y += 25;
 	//-----------------DRAW BALL Z VELOCITY-----------------
@@ -535,6 +538,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	canvas_y += 25;
 
 	//-----------------DRAW ACCUMULAED ABOSRBED ENERGY-----------------
+	canvas.SetColor(255, 255, 255, 255);
 	float force_accum_recent = 0.0f;
 	canvas.SetPosition(Vector2{ 0, canvas_y });
 	if ((2500 - (ballLastHitTime * 2500)) >= 0) {
@@ -551,13 +555,13 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 		calcualtedAbsorbedForce = 0;
 	}
 	if (ball_state == 0) {
-		if (calcualtedAbsorbedForce >= (2500 - (int)ball_charge)) {
+		if (calcualtedAbsorbedForce >= (2500 - (int)ball_charge) && (int)carVelocityTowardsBall > 500) {
 			canvas.SetColor(0, 208, 0, 255);
 		} else {
 			canvas.SetColor(255, 255, 255, 255);
 		}
 	} else if (ball_state == 1) {
-		if (calcualtedAbsorbedForce >= (11000 - (int)ball_charge)) {
+		if (calcualtedAbsorbedForce >= (11000 - (int)ball_charge) && (int)carVelocityTowardsBall > 500) {
 			canvas.SetColor(0, 208, 0, 255);
 		} else {
 			canvas.SetColor(255, 255, 255, 255);
