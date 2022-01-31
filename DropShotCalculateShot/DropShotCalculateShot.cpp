@@ -5,6 +5,8 @@
 #include "VectorUtils.h"
 #include "RenderingTools/Objects/Frustum.h"
 #include "RenderingTools/Objects/Line.h"
+#include "RenderingTools/Objects/Sphere.h"
+#include "RenderingTools/Objects/Circle.h"
 #include <algorithm> // used for avoiding certain tiles
 #include <sstream> // strings?
 #include <chrono> // date stuff
@@ -82,6 +84,30 @@ DropShotTile DropShotCalculateShot::FindTileFromPostion(const Vector& position) 
 		}
 	}
 } // Not all control paths return a value, yes, DoesTileExist() is reponsible to make sure that doesn't happen as its always run (when needed) ahead of this function.
+BreakOutActorPlatformWrapper DropShotCalculateShot::FindBreakOutPlatformFromPosition(const Vector& position) {
+	for (BreakOutActorPlatformWrapper& tile : all_platforms) {
+		std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(tile.GetLocation());
+		if (VectorUtils::IsPointInsidePolygon(position, tile_corners)) {
+			return tile;
+		}
+	}
+} // Not all control paths return a value, yes, DoesTileExist() is reponsible to make sure that doesn't happen as its always run (when needed) ahead of this function.
+
+/**
+ * .Checks if there is a tile given a vector location.
+ *
+ * \param Vector position
+ * \return true if a tile exists there, else false
+ */
+bool DropShotCalculateShot::DoesBreakOutPlatformExist(const Vector& position) {
+	for (BreakOutActorPlatformWrapper& tile : all_platforms) {
+		std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(tile.GetLocation());
+		if (VectorUtils::IsPointInsidePolygon(position, tile_corners)) {
+			return true;
+		}
+	}
+	return false;
+}
 
 /**
  * .Checks if there is a tile given a vector location.
@@ -190,7 +216,29 @@ std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetHexagonCornors(
 
 	return cornors;
 }
+/**
+* @param Vector
+* @return A vector list of vectors.
+*/
+std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetHexagonCornors(const Vector& CenterPosition) {
+	Vector point1 = { CenterPosition.X + 384.0f, CenterPosition.Y - 221.7f, 0.0f };
+	Vector point2 = { CenterPosition.X + 384.0f, CenterPosition.Y + 221.7f, 0.0f };
+	Vector point3 = { CenterPosition.X, CenterPosition.Y + 443.41f, 0.0f };
+	Vector point4 = { CenterPosition.X - 384.0f, CenterPosition.Y + 221.7f, 0.0f };
+	Vector point5 = { CenterPosition.X - 384.0f, CenterPosition.Y - 221.7f, 0.0f };
+	Vector point6 = { CenterPosition.X, CenterPosition.Y - 443.41f, 0.0f };
 
+	std::vector<std::pair<Vector, Vector>> cornors = {
+		{ point1, point2 },
+		{ point2, point3 },
+		{ point3, point4 },
+		{ point4, point5 },
+		{ point5, point6 },
+		{ point6, point1 }
+	};
+
+	return cornors;
+}
 /**
  * .Get Hexagon center lines out, No idea what to call this.. But this is responsible for 'collision' detection, or damaged neighbour checking.
  *
@@ -223,13 +271,13 @@ std::vector<Vector> DropShotCalculateShot::GetHexagonConnectors(const DropShotTi
  * \param numberOfLines
  * \return
  */
-std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetFilledHexagonCoordinates(const DropShotTile& h, const int numberOfLines) {
+std::vector<std::pair<Vector, Vector>> DropShotCalculateShot::GetFilledHexagonCoordinates(const Vector& CenterPosition, const int numberOfLines) {
 	const float tileHeight = 886.82f;
 	const float triangleHeight = 221.705f;
 	const float width = 768.0f;
 	const float spacing = tileHeight / numberOfLines;
-	const float centerX = h.CenterPosition.X;
-	const float centerY = h.CenterPosition.Y;
+	const float centerX = CenterPosition.X;
+	const float centerY = CenterPosition.Y;
 
 	std::vector<std::pair<Vector, Vector>> points;
 
@@ -285,7 +333,7 @@ int DropShotCalculateShot::GetPlayerTeam() {
 	return pri.GetTeamNum2();
 }
 /**
-* Resets all the global variables, i don't know if you should change this but this works, and it took long enough to make it work properly, This doesnt work half the time still but its cool
+* Resets all the global variables
 */
 void DropShotCalculateShot::ResetVariables() {
 	team_tiles.clear();
@@ -312,11 +360,9 @@ void DropShotCalculateShot::ResetVariables() {
  *
  */
 void DropShotCalculateShot::UpdateAllTiles() {
-	auto pc = gameWrapper->GetCurrentGameState();
-	// just to make sure you're in a match first
-	if (!pc) return;
-	auto platforms = BreakOutActorPlatformWrapper::GetAllPlatforms();
-	for (auto platform : platforms) {
+	all_platforms.clear();
+	all_platforms = BreakOutActorPlatformWrapper::GetAllPlatforms();
+	for (BreakOutActorPlatformWrapper platform : all_platforms) {
 		if (!platform) { return; }
 		for (DropShotTile& tile : all_tiles) {
 			if (VectorUtils::DistanceTo(platform.GetLocation(), Vector{ tile.CenterPosition.X , tile.CenterPosition.Y, 0 }) < 100.0) {
@@ -334,7 +380,7 @@ void DropShotCalculateShot::onLoad() {
 	//UpdateAllTiles();
 
 	//Function TAGame.Ball_Breakout_TA.GetDamageIndexForForce
-	struct GetDamageIndexForForce {
+	struct GetDamageIndexForForceParams {
 		float force;
 		int32_t return_value;
 	};
@@ -343,14 +389,14 @@ void DropShotCalculateShot::onLoad() {
 													  [this] (BallWrapper caller,
 													  void* params,
 													  std::string eventname) {
-		GetDamageIndexForForce* param = (GetDamageIndexForForce*)params;
+		GetDamageIndexForForceParams* param = (GetDamageIndexForForceParams*)params;
 		ball_charge = param->force;
 	});
+
 	gameWrapper->HookEventWithCallerPost<BallWrapper>("Function TAGame.Ball_TA.OnCarTouch",
 														  [this](BallWrapper caller,
 														  void* params,
 														  std::string eventname) {
-		GetDamageIndexForForce* param = (GetDamageIndexForForce*)params;
 		ballHitTime = std::chrono::high_resolution_clock::now();
 	});
 
@@ -475,13 +521,16 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	if (!server) { return; }
 	BallWrapper ball = server.GetBall();
 	if (!ball || !ball.IsDropshotBall()) { return; }
+
+	BallBreakoutWrapper breakout_ball = server.GetGameBalls().Get(0).memory_address;
+	if (!breakout_ball) { return; }
+
 	CarWrapper car = gameWrapper->GetLocalCar();
 	if (!car) { return; }
 	CameraWrapper camera = gameWrapper->GetCamera();
 	if (!camera) { return; }
 	ArrayWrapper<TeamWrapper> teams = server.GetTeams();
 	if (teams.IsNull()) { return; }
-
 	int32_t team_number = (is_on_blue_team ? 0 : 1);
 	TeamWrapper team = teams.Get(team_number);
 	if (!team) { return; }
@@ -503,6 +552,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	}else if (ball_state == 1) {
 		canvas.DrawString("Ball state: Charged", 2.0, 2.0);
 	} else if (ball_state == 2) {
+		canvas.SetColor(0, 208, 0, 255);
 		canvas.DrawString("Ball state: Super Charged", 2.0, 2.0);
 	}
 	canvas_y += 25;
@@ -538,46 +588,47 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	canvas_y += 25;
 
 	//-----------------DRAW ACCUMULAED ABOSRBED ENERGY-----------------
-	canvas.SetColor(255, 255, 255, 255);
-	float force_accum_recent = 0.0f;
-	canvas.SetPosition(Vector2{ 0, canvas_y });
-	if ((2500 - (ballLastHitTime * 2500)) >= 0) {
-		force_accum_recent = (2500 - (ballLastHitTime * 2500));
-		canvas.DrawString("Accumulated absorbed energy: " + std::to_string((int)force_accum_recent), 2.0, 2.0);
-		canvas_y += 25;
-	}
-	//-----------------DRAW THE CALCUALTED DAMAGE TRANSFER-----------------
-	canvas.SetPosition(Vector2{ 0, canvas_y });
-	int calcualtedAbsorbedForce = (int)((carVelocityTowardsBall - force_accum_recent));
-	if (calcualtedAbsorbedForce >= 2500) {
-		calcualtedAbsorbedForce = 2500;
-	} else if (calcualtedAbsorbedForce <= 0) {
-		calcualtedAbsorbedForce = 0;
-	}
-	if (ball_state == 0) {
-		if (calcualtedAbsorbedForce >= (2500 - (int)ball_charge) && (int)carVelocityTowardsBall > 500) {
-			canvas.SetColor(0, 208, 0, 255);
-		} else {
-			canvas.SetColor(255, 255, 255, 255);
+	if (ball_state != 2) {
+		canvas.SetColor(255, 255, 255, 255);
+		float force_accum_recent = 0.0f;
+		canvas.SetPosition(Vector2{ 0, canvas_y });
+		if ((2500 - (ballLastHitTime * 2500)) >= 0) {
+			force_accum_recent = (2500 - (ballLastHitTime * 2500));
+			canvas.DrawString("Accumulated absorbed energy: " + std::to_string((int)force_accum_recent), 2.0, 2.0);
+			canvas_y += 25;
 		}
-	} else if (ball_state == 1) {
-		if (calcualtedAbsorbedForce >= (11000 - (int)ball_charge) && (int)carVelocityTowardsBall > 500) {
-			canvas.SetColor(0, 208, 0, 255);
-		} else {
-			canvas.SetColor(255, 255, 255, 255);
+		//-----------------DRAW THE CALCUALTED DAMAGE TRANSFER-----------------
+		canvas.SetPosition(Vector2{ 0, canvas_y });
+		int calcualtedAbsorbedForce = (int)((carVelocityTowardsBall - force_accum_recent));
+		if (calcualtedAbsorbedForce >= 2500) {
+			calcualtedAbsorbedForce = 2500;
+		} else if (calcualtedAbsorbedForce <= 0) {
+			calcualtedAbsorbedForce = 0;
 		}
-	}
-	canvas.DrawString("Calculated absorbed force: " + std::to_string(calcualtedAbsorbedForce), 2.0, 2.0);
-
-	//-----------------DRAW NEXT BALL STATE IN-----------------
-	canvas_y += 25;
-	canvas.SetPosition(Vector2{ 0, canvas_y });
-	if (ball_state == 0) {
-		canvas.DrawString("Next ball state in: " + std::to_string(2500 - (int)ball_charge) + " energy", 2.0, 2.0);
+		if (ball_state == 0) {
+			if (calcualtedAbsorbedForce >= (2500 - (int)ball_charge) && (int)carVelocityTowardsBall > 500) {
+				canvas.SetColor(0, 208, 0, 255);
+			} else {
+				canvas.SetColor(255, 255, 255, 255);
+			}
+		} else if (ball_state == 1) {
+			if (calcualtedAbsorbedForce >= (11000 - (int)ball_charge) && (int)carVelocityTowardsBall > 500) {
+				canvas.SetColor(0, 208, 0, 255);
+			} else {
+				canvas.SetColor(255, 255, 255, 255);
+			}
+		}
+		canvas.DrawString("Calculated absorbed force: " + std::to_string(calcualtedAbsorbedForce), 2.0, 2.0);
 		canvas_y += 25;
-	} else if (ball_state == 1) {
-		canvas.DrawString("Next ball state in: " + std::to_string(11000 - (int)ball_charge) + " energy", 2.0, 2.0);
-		canvas_y += 25;
+		//-----------------DRAW NEXT BALL STATE IN-----------------
+		canvas.SetPosition(Vector2{ 0, canvas_y });
+		if (ball_state == 0) {
+			canvas.DrawString("Next ball state in: " + std::to_string(2500 - (int)ball_charge) + " energy", 2.0, 2.0);
+			canvas_y += 25;
+		} else if (ball_state == 1) {
+			canvas.DrawString("Next ball state in: " + std::to_string(11000 - (int)ball_charge) + " energy", 2.0, 2.0);
+			canvas_y += 25;
+		}
 	}
 	//-----------------DRAW IF WE CAN DAMAGE TILES-----------------
 	canvas.SetPosition(Vector2{ 0, canvas_y });
@@ -601,34 +652,108 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	}
 	//-----------------FIND BEST SHOT-----------------
 	std::vector<int32_t> best_shot_tiles = FindBestShot();
-	for (int32_t  best_shot_tile : best_shot_tiles) {
-		if (!best_shot_tile) { return; }
-		const DropShotTile& h = all_tiles[best_shot_tile];
-		float distanceFromPlayer = VectorUtils::DistanceTo(car.GetLocation(), Vector{ h.CenterPosition.X, h.CenterPosition.Y, 0 });
-		// Any more lines can cause FPS drop, so if you have beefy pc and care for some crisp hexagons, have at it.
-		int numberOfLines = 100000 / (int)distanceFromPlayer;
-		if (numberOfLines >= 50) {
-			numberOfLines = 50;
-		}
-		if (!h.IsOpen()) { // When this is false, its an opened tile
-			std::vector<Vector> connectors = GetHexagonConnectors(h);
-			std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h);
-
-			std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(h, numberOfLines);
-			canvas.SetColor(0, 208, 0, 45);
-			for (int i = 0; i < tile_fill_coordinates.size(); i++) {
-				RT::Line(tile_fill_coordinates[i].first, tile_fill_coordinates[i].second, 2.0f).DrawWithinFrustum(canvas, frust);
+	if (!best_shot_tiles.empty()) {
+		for (int32_t best_shot_tile : best_shot_tiles) {
+			if (!best_shot_tile) { return; }
+			const DropShotTile& h = all_tiles[best_shot_tile];
+			float distanceFromPlayer = VectorUtils::DistanceTo(car.GetLocation(), Vector{ h.CenterPosition.X, h.CenterPosition.Y, 0 });
+			// Any more lines can cause FPS drop, so if you have beefy pc and care for some crisp hexagons, have at it.
+			int numberOfLines = 100000 / (int)distanceFromPlayer;
+			if (numberOfLines >= 50) {
+				numberOfLines = 50;
 			}
-			canvas.SetColor(0, 208, 0, 130);
-			for (int i = 0; i < tile_corners.size(); i++) {
-				if (DoesTileExist(connectors[i])) { // Very important do not remove, this is to ensure the program doesn't look for tiles that are outside of the arena. When an edge tile gets 'opened' it looks for tiles outside there.
-					if (!(std::find(best_shot_tiles.begin(), best_shot_tiles.end(), FindTileFromPostion(connectors[i]).Id) != best_shot_tiles.end())) {
-						RT::Line(tile_corners[i].first, tile_corners[i].second, 3.0f).DrawWithinFrustum(canvas, frust);
+			if (!h.IsOpen()) { // When this is false, its an opened tile
+				std::vector<Vector> connectors = GetHexagonConnectors(h);
+				std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h);
+				std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(Vector {h.CenterPosition.X, h.CenterPosition.Y, 0}, numberOfLines);
+
+				canvas.SetColor(0, 208, 0, 45);
+				for (int i = 0; i < tile_fill_coordinates.size(); i++) {
+					RT::Line(tile_fill_coordinates[i].first, tile_fill_coordinates[i].second, 2.0f).DrawWithinFrustum(canvas, frust);
+				}
+				canvas.SetColor(0, 208, 0, 130);
+				for (int i = 0; i < tile_corners.size(); i++) {
+					if (DoesTileExist(connectors[i])) { // Very important do not remove, this is to ensure the program doesn't look for tiles that are outside of the arena. When an edge tile gets 'opened' it looks for tiles outside there.
+						if (!(std::find(best_shot_tiles.begin(), best_shot_tiles.end(), FindTileFromPostion(connectors[i]).Id) != best_shot_tiles.end())) {
+							RT::Line(tile_corners[i].first, tile_corners[i].second, 3.0f).DrawWithinFrustum(canvas, frust);
+						}
 					}
 				}
 			}
 		}
 	}
+	//-----------------DRAW WHERE AND IF THE BALL CAN DO DAMGE--------------------------
+	canvas.SetColor(208, 0, 0, 130);
+	if (DoesBreakOutPlatformExist(ball.GetLocation())) {
+		BreakOutActorPlatformWrapper h = FindBreakOutPlatformFromPosition(ball.GetLocation());
+		if (!h.IsBroken()) {
+			float distanceFromPlayer = VectorUtils::DistanceTo(car.GetLocation(), h.GetLocation());
+			// Any more lines can cause FPS drop, so if you have beefy pc and care for some crisp hexagons, have at it.
+			int numberOfLines = 100000 / (int)distanceFromPlayer;
+			if (numberOfLines >= 50) {
+				numberOfLines = 50;
+			}
+			std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h.GetLocation());
+			std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(h.GetLocation(), numberOfLines);
+
+			// Dont change this...
+			if (breakout_ball.GetLastTeamTouch() == 0) {// blue touched last
+				if (ballLocation.Y < 0) {
+					canvas.SetColor(208, 0, 0, 45);
+				} else { // orange side
+					if ((int)ball.GetVelocity().Z <= -250) {
+						canvas.SetColor(0, 208, 0, 45);
+					} else {
+						canvas.SetColor(208, 0, 0, 45);
+					}
+				}
+			} else if (breakout_ball.GetLastTeamTouch() == 1) { // orange touched last
+				if (ballLocation.Y < 0) {
+					if ((int)ball.GetVelocity().Z <= -250) {
+						canvas.SetColor(0, 208, 0, 45);
+					} else {
+						canvas.SetColor(208, 0, 0, 45);
+					}
+				} else {
+					canvas.SetColor(208, 0, 0, 45);
+				}
+			}
+
+			for (std::pair<Vector, Vector> tile_fill_coordinate : tile_fill_coordinates) {
+				RT::Line(tile_fill_coordinate.first, tile_fill_coordinate.second, 2.0f).DrawWithinFrustum(canvas, frust);
+			}
+
+			// Dont change this...
+			if (breakout_ball.GetLastTeamTouch() == 0) {// blue touched last
+				if (ballLocation.Y < 0) {
+					canvas.SetColor(208, 0, 0, 130);
+				} else { // orange side
+					if ((int)ball.GetVelocity().Z <= -250) {
+						canvas.SetColor(0, 208, 0, 130);
+					} else {
+						canvas.SetColor(208, 0, 0, 130);
+					}
+				}
+			} else if (breakout_ball.GetLastTeamTouch() == 1) { // orange touched last
+				if (ballLocation.Y < 0) {
+					if ((int)ball.GetVelocity().Z <= -250) {
+						canvas.SetColor(0, 208, 0, 130);
+					} else {
+						canvas.SetColor(208, 0, 0, 130);
+					}
+				} else {
+					canvas.SetColor(208, 0, 0, 130);
+				}
+			}
+			for (std::pair<Vector, Vector> tile_corner : tile_corners) {
+				RT::Line(tile_corner.first, tile_corner.second, 3.0f).DrawWithinFrustum(canvas, frust);
+			}
+			//RT::Sphere(ball.GetLocation(), RotatorToQuat(ball.GetRotation()), 102.24f).Draw(canvas, frust, camera.GetLocation(), 10);
+		}
+	}
+	Rotator camRot = camera.GetRotation();
+	camRot.Pitch -= 16000; // I have no idea how quats work, but this does the job! :)
+	RT::Circle(ball.GetLocation(), RotatorToQuat(camRot), 102.24f).Draw(canvas, frust);
 	//-----------------FIND OPEN NETS-----------------
 	std::vector<int32_t> open_nets = FindOpenNets();
 	for (int32_t  open_net : open_nets) {
@@ -641,7 +766,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 		}
 		std::vector<Vector> connectors = GetHexagonConnectors(h);
 		std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h);
-		std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(h, numberOfLines);
+		std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(Vector{ h.CenterPosition.X, h.CenterPosition.Y, 0 }, numberOfLines);
 		for (int i = 0; i < tile_corners.size(); i++) {
 			if (DoesTileExist(connectors[i])) { // Very important do not remove, this is to ensure the program doesn't look for tiles that are outside of the arena. When an edge tile gets 'opened' it looks for tiles outside there.
 				canvas.SetColor(team.GetPrimaryColor().R * 255, team.GetPrimaryColor().G * 255, team.GetPrimaryColor().B * 255, 20);

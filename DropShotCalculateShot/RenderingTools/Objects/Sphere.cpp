@@ -81,7 +81,7 @@ void RT::Sphere::Draw(CanvasWrapper canvas, Frustum &frustum, Vector cameraLocat
             Line vertLineNext(semicircles[i][j + 1], cameraLocation);
 			if(frustum.IsInFrustum(semicircles[i][j + 1]) && !testSphere.IsOccludingLine(vertLineNext))
 			{
-				canvas.DrawLine(canvas.ProjectF(semicircles[i][j]), canvas.ProjectF(semicircles[i][j + 1]));
+				canvas.DrawLine(canvas.ProjectF(semicircles[i][j]), canvas.ProjectF(semicircles[i][j + 1]), 1);
 			}
 
 			//If it's the first line, there are no horizontal lines to draw
@@ -96,7 +96,7 @@ void RT::Sphere::Draw(CanvasWrapper canvas, Frustum &frustum, Vector cameraLocat
                 Line horizontalLine(semicircles[i + 1][j], cameraLocation);
 				if(frustum.IsInFrustum(semicircles[i + 1][j]) && !testSphere.IsOccludingLine(horizontalLine))
 				{
-					canvas.DrawLine(canvas.ProjectF(semicircles[i][j]), canvas.ProjectF(semicircles[i + 1][j]));
+					canvas.DrawLine(canvas.ProjectF(semicircles[i][j]), canvas.ProjectF(semicircles[i + 1][j]), 1);
 				}
 			}
 			else
@@ -105,7 +105,7 @@ void RT::Sphere::Draw(CanvasWrapper canvas, Frustum &frustum, Vector cameraLocat
                 Line connectLastToFirstLine(semicircles[0][j], cameraLocation);
 				if(frustum.IsInFrustum(semicircles[0][j]) && !testSphere.IsOccludingLine(connectLastToFirstLine))
 				{
-					canvas.DrawLine(canvas.ProjectF(semicircles[i][j]), canvas.ProjectF(semicircles[0][j]));
+					canvas.DrawLine(canvas.ProjectF(semicircles[i][j]), canvas.ProjectF(semicircles[0][j]), 1);
 				}
 			}
 		}
@@ -134,7 +134,7 @@ bool RT::Sphere::IsOccludingLine(Line &line) const
 
 	//Check if the projected point is within the drawingToCamera line segment
 	Line drawingToCameraSegment(line.lineBegin, line.lineEnd);
-	
+
 	//The projected point is on the line
 	if(drawingToCameraSegment.IsPointWithinLineSegment(midProjection))
 		return true;

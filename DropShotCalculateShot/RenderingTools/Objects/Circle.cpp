@@ -7,7 +7,7 @@
 #include <vector>
 
 RT::Circle::Circle()
-	: location(Vector(0,0,0)), orientation(Quat(1,0,0,0)), radius(100), lineThickness(1), piePercentage(1), steps(16) {}
+	: location(Vector(0,0,0)), orientation(Quat(1,0,0,0)), radius(100), lineThickness(3), piePercentage(1), steps(25) {}
 
 RT::Circle::Circle(Vector loc, Quat rot, float rad)
 	: Circle() { location = loc; orientation = rot; radius = rad; }
@@ -44,7 +44,7 @@ void RT::Circle::Draw(CanvasWrapper canvas, Frustum &frustum) const
 	int newPointAmount = static_cast<int>(static_cast<float>(circlePoints.size()) * piePercentage);
 	if(piePercentage != 0 && piePercentage != 1)
 		newPointAmount += 1;
-	
+
 	//Calculate how much of the last line should be drawn
 	float percentagePerLineSegment = 1.f / steps;
 	float fullLinePercentage = newPointAmount * percentagePerLineSegment - percentagePerLineSegment;

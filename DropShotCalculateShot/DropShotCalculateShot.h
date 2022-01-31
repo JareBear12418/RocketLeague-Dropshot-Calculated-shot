@@ -15,6 +15,7 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin {
 	std::vector<Vector> team_tiles; // The tiles to use depending on what team you're on.
 	std::vector<int32_t> tiles_to_avoid; // The tiles to avoid depending on what team you're on.
 	std::vector<DropShotTile> all_tiles;
+	std::vector<BreakOutActorPlatformWrapper> all_platforms;
 	int32_t ball_state = 0; // The balls current charge state.
 	Vector ballLocation;
 	float ball_charge = 0.0f; // The balls current charge level
@@ -33,8 +34,10 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin {
 	std::vector<int32_t> GetTileNeighbours(const DropShotTile& tile) const;
 	std::vector<int32_t> GetTileNeighbours(const DropShotTile& tile, int32_t ball_state) const;
 	void FindUpdatedTile(const Vector& ball_position);
+	BreakOutActorPlatformWrapper FindBreakOutPlatformFromPosition(const Vector& ball_position);
 	DropShotTile FindTileFromPostion(const Vector& position);
 	bool DoesTileExist(const Vector& position);
+	bool DoesBreakOutPlatformExist(const Vector& position);
 
 	double DistanceTo(const Vector p1, const Vector p2);
 	void UpdateAllTiles();
@@ -42,8 +45,9 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin {
 	std::vector<int32_t> FindBestShot();
 	std::vector<int32_t> FindOpenNets() const;
 	std::vector<std::pair<Vector, Vector>> GetHexagonCornors(const DropShotTile& h);
+	std::vector<std::pair<Vector, Vector>> GetHexagonCornors(const Vector& CenterPosition);
 	std::vector<Vector> GetHexagonConnectors(const DropShotTile& h);
-	std::vector<std::pair<Vector, Vector>> GetFilledHexagonCoordinates(const DropShotTile& h, const int numberOfLines);
+	std::vector<std::pair<Vector, Vector>> GetFilledHexagonCoordinates(const Vector& CenterPosition, const int numberOfLines);
 	std::string ConvertToString(float& value);
 	float CarVelocityTowardsBall(CarWrapper& car, BallWrapper& ball);
 	void ResetVariables();
