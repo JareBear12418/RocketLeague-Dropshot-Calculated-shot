@@ -3,16 +3,16 @@
 #include "Matrix3.h"
 
 RT::Cube::Cube()
-	: location(Vector()), orientation(Quat()), sideLength(50), lineThickness(1) {}
+	: location(Vector()), orientation(Quat()), sideLength(50), lineThickness(3) {}
 
 RT::Cube::Cube(Vector loc)
-    : location(loc), orientation(Quat()), sideLength(50), lineThickness(1) {}
+    : location(loc), orientation(Quat()), sideLength(50), lineThickness(3) {}
 
 RT::Cube::Cube(Vector loc, float sLength)
-    : location(loc), orientation(Quat()), sideLength(sLength), lineThickness(1) {}
+    : location(loc), orientation(Quat()), sideLength(sLength), lineThickness(3) {}
 
 RT::Cube::Cube(Vector loc, Quat rot, float sLength)
-	: location(loc), orientation(rot), sideLength(sLength), lineThickness(1) {}
+	: location(loc), orientation(rot), sideLength(sLength), lineThickness(3) {}
 
 void RT::Cube::Draw(CanvasWrapper canvas) const
 {

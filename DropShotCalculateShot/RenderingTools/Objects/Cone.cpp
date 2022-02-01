@@ -6,7 +6,7 @@
 #include <vector>
 
 RT::Cone::Cone()
-	: location(Vector()), direction(Vector(0,0,1)), radius(5), height(20), rollAmount(0), segments(8), thickness(1) {}
+	: location(Vector()), direction(Vector(0,0,1)), radius(15), height(60), rollAmount(0), segments(15), thickness(2) {}
 
 RT::Cone::Cone(Vector loc, Vector dir)
 	: Cone() { location = loc; direction = dir; }
@@ -16,7 +16,7 @@ void RT::Cone::Draw(CanvasWrapper canvas) const
 	Vector dir = direction;
 	dir.normalize();
 	Quat orientation = LookAt(location, location + dir, LookAtAxis::AXIS_UP).ToQuat();
-	
+
 	//Create base circle
 	std::vector<Vector> basePoints;
 	Vector start = {1,0,0};
@@ -32,7 +32,7 @@ void RT::Cone::Draw(CanvasWrapper canvas) const
 	}
 
 	Vector2F tip = canvas.ProjectF(location + (dir * height));
-	
+
 	//Orient circle and project to canvas
 	std::vector<Vector2F> canvasPoints;
 	for(size_t i = 0; i != basePoints.size(); ++i)

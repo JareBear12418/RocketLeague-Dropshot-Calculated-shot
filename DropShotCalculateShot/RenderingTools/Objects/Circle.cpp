@@ -9,8 +9,10 @@
 RT::Circle::Circle()
 	: location(Vector(0,0,0)), orientation(Quat(1,0,0,0)), radius(100), lineThickness(3), piePercentage(1), steps(25) {}
 
-RT::Circle::Circle(Vector loc, Quat rot, float rad)
-	: Circle() { location = loc; orientation = rot; radius = rad; }
+RT::Circle::Circle(Vector loc, Quat rot, float rad, float lineThick)
+	: Circle() {
+	location = loc; orientation = rot; radius = rad; lineThickness = lineThick;
+}
 
 void RT::Circle::Draw(CanvasWrapper canvas, Frustum &frustum) const
 {

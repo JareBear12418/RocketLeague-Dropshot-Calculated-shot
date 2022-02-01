@@ -18,6 +18,9 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin {
 	std::vector<BreakOutActorPlatformWrapper> all_platforms;
 	int32_t ball_state = 0; // The balls current charge state.
 	Vector ballLocation;
+	Vector lastBallLocation;
+	const int MAX_HEXAGON_LINES = 50;
+	bool is_cone_up = false;
 	float ball_charge = 0.0f; // The balls current charge level
 	float carVelocity = 0.0f;
 	float ball_speed = 0.0f;
@@ -41,6 +44,7 @@ class DropShotCalculateShot : public BakkesMod::Plugin::BakkesModPlugin {
 
 	double DistanceTo(const Vector p1, const Vector p2);
 	void UpdateAllTiles();
+	float WhenDoesBallHitGround();
 	int GetPlayerTeam();
 	std::vector<int32_t> FindBestShot();
 	std::vector<int32_t> FindOpenNets() const;

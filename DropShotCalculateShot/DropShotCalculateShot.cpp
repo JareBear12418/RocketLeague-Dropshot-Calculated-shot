@@ -7,6 +7,7 @@
 #include "RenderingTools/Objects/Line.h"
 #include "RenderingTools/Objects/Sphere.h"
 #include "RenderingTools/Objects/Circle.h"
+#include "RenderingTools/Objects/Cone.h"
 #include <algorithm> // used for avoiding certain tiles
 #include <sstream> // strings?
 #include <chrono> // date stuff
@@ -20,6 +21,8 @@ std::shared_ptr<CVarManagerWrapper> _globalCvarManager;
 auto ballHitTime = std::chrono::high_resolution_clock::now();
 auto ballDidDamageTime = std::chrono::high_resolution_clock::now();
 auto lastDistanceCheckTime = std::chrono::high_resolution_clock::now();
+auto coneUpDownMotionTime = std::chrono::high_resolution_clock::now();
+auto coneLastMoveTime = std::chrono::high_resolution_clock::now();
 auto currentTime = std::chrono::high_resolution_clock::now();
 
 /**
@@ -164,7 +167,7 @@ std::vector<int32_t> DropShotCalculateShot::FindBestShot() {
 		float ratio = damaged_counter / normal_counter;
 		if (tile.State != 2) {
 			if (ball_state != 0) {// Charged or Super Charged ball states
-				if (ratio >= 1.2f && ball_state == 2 || ratio >= 4.0f && ball_state == 1 && !tile.IsOpen()) {
+				if (ratio >= 0.6f && ball_state == 2 || ratio >= 4.0f && ball_state == 1 && !tile.IsOpen()) {
 					tiles_with_most_damaged_neighbors.push_back(tile.Id);
 				}
 			} else { // Normal ball state
@@ -372,6 +375,22 @@ void DropShotCalculateShot::UpdateAllTiles() {
 	}
 }
 
+float DropShotCalculateShot::WhenDoesBallHitGround() {
+	ServerWrapper server = gameWrapper->GetCurrentGameState();
+	if (!server) { return 0.0f; }
+	BallWrapper ball = server.GetBall();
+	if (!ball || !ball.IsDropshotBall()) { return 0.0f; }
+	float whenBallHitGround = 0.0f;
+	if (ball.GetLocation().Z > 107.0f) {
+		for (float timeInterval = 0.0f; timeInterval < 5.0f; timeInterval += 0.05f) {
+			if (ball.PredictPosition(timeInterval).Location.Z <= 106.0f) {
+				return timeInterval;
+			}
+		}
+	}
+	return 0.0f;
+}
+
 void DropShotCalculateShot::onLoad() {
 	_globalCvarManager = cvarManager;
 	cvarManager->log("Plugin loaded!");
@@ -541,7 +560,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 
 	RT::Frustum frust{ canvas, camera };
 
-	int canvas_y = 1000-(25*9);
+	int canvas_y = 1000 - (25 * 9);
 
 	// Im not good with guis, so please help.
 	canvas.SetPosition(Vector2{ 0, canvas_y });
@@ -549,7 +568,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	canvas.SetColor(255, 255, 255, 255);
 	if (ball_state == 0) {
 		canvas.DrawString("Ball state: Normal", 2.0, 2.0);
-	}else if (ball_state == 1) {
+	} else if (ball_state == 1) {
 		canvas.DrawString("Ball state: Charged", 2.0, 2.0);
 	} else if (ball_state == 2) {
 		canvas.SetColor(0, 208, 0, 255);
@@ -563,7 +582,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	canvas_y += 25;
 	//-----------------DRAW BALL Z VELOCITY-----------------
 	canvas.SetPosition(Vector2{ 0, canvas_y });
-	if ( (int)ball.GetVelocity().Z >= -250) {
+	if ((int)ball.GetVelocity().Z >= -250) {
 		canvas.SetColor(208, 0, 0, 255);
 		canvas.DrawString("Ball down velocity: " + std::to_string((int)fabs(ball.GetVelocity().Z)), 2.0, 2.0);
 	} else {
@@ -648,7 +667,7 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	canvas.DrawString("Last ball hit: " + std::to_string(roundf(ballLastHitTime * 100) / 100).substr(0, std::to_string(roundf(ballLastHitTime * 100) / 100).size() - 4) + "/s", 2.0, 2.0);
 
 	if (ball.GetLocation().X != 0.0 && ball.GetLocation().Y != 0.0 && ball.GetLocation().Z >= 0) {
-		ballLocation = {ball.GetLocation().X, ball.GetLocation().Y, ball.GetLocation().Z};
+		ballLocation = { ball.GetLocation().X, ball.GetLocation().Y, ball.GetLocation().Z };
 	}
 	//-----------------FIND BEST SHOT-----------------
 	std::vector<int32_t> best_shot_tiles = FindBestShot();
@@ -659,13 +678,13 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 			float distanceFromPlayer = VectorUtils::DistanceTo(car.GetLocation(), Vector{ h.CenterPosition.X, h.CenterPosition.Y, 0 });
 			// Any more lines can cause FPS drop, so if you have beefy pc and care for some crisp hexagons, have at it.
 			int numberOfLines = 100000 / (int)distanceFromPlayer;
-			if (numberOfLines >= 50) {
-				numberOfLines = 50;
+			if (numberOfLines >= MAX_HEXAGON_LINES) {
+				numberOfLines = MAX_HEXAGON_LINES;
 			}
 			if (!h.IsOpen()) { // When this is false, its an opened tile
 				std::vector<Vector> connectors = GetHexagonConnectors(h);
 				std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h);
-				std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(Vector {h.CenterPosition.X, h.CenterPosition.Y, 0}, numberOfLines);
+				std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(Vector{ h.CenterPosition.X, h.CenterPosition.Y, 0 }, numberOfLines);
 
 				canvas.SetColor(0, 208, 0, 45);
 				for (int i = 0; i < tile_fill_coordinates.size(); i++) {
@@ -684,32 +703,34 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 	}
 	//-----------------DRAW WHERE AND IF THE BALL CAN DO DAMGE--------------------------
 	canvas.SetColor(208, 0, 0, 130);
-	if (DoesBreakOutPlatformExist(ball.GetLocation())) {
-		BreakOutActorPlatformWrapper h = FindBreakOutPlatformFromPosition(ball.GetLocation());
+	//cvarManager->log(std::to_string(ballLocation.Z) + " " + std::to_string(WhenDoesBallHitGround()));
+	Vector PredictedBallPosition = ball.PredictPosition(WhenDoesBallHitGround()).Location;
+	if (DoesBreakOutPlatformExist(PredictedBallPosition) && ball.GetLocation().X != 0.0f && ball.GetLocation().X != 0.0f) {
+		BreakOutActorPlatformWrapper h = FindBreakOutPlatformFromPosition(PredictedBallPosition);
 		if (!h.IsBroken()) {
 			float distanceFromPlayer = VectorUtils::DistanceTo(car.GetLocation(), h.GetLocation());
 			// Any more lines can cause FPS drop, so if you have beefy pc and care for some crisp hexagons, have at it.
 			int numberOfLines = 100000 / (int)distanceFromPlayer;
-			if (numberOfLines >= 50) {
-				numberOfLines = 50;
+			if (numberOfLines >= MAX_HEXAGON_LINES) {
+				numberOfLines = MAX_HEXAGON_LINES;
 			}
 			std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h.GetLocation());
 			std::vector<std::pair<Vector, Vector>> tile_fill_coordinates = GetFilledHexagonCoordinates(h.GetLocation(), numberOfLines);
-
+			float ballVelocity = ball.PredictPosition(WhenDoesBallHitGround() - 0.07f).Velocity.Z;
 			// Dont change this...
 			if (breakout_ball.GetLastTeamTouch() == 0) {// blue touched last
-				if (ballLocation.Y < 0) {
+				if (ballLocation.Y < 0 && h.GetTeamIndex() == 0) {
 					canvas.SetColor(208, 0, 0, 45);
 				} else { // orange side
-					if ((int)ball.GetVelocity().Z <= -250) {
+					if (ballVelocity <= -250) {
 						canvas.SetColor(0, 208, 0, 45);
 					} else {
 						canvas.SetColor(208, 0, 0, 45);
 					}
 				}
 			} else if (breakout_ball.GetLastTeamTouch() == 1) { // orange touched last
-				if (ballLocation.Y < 0) {
-					if ((int)ball.GetVelocity().Z <= -250) {
+				if (ballLocation.Y < 0 && h.GetTeamIndex() == 0) {
+					if (ballVelocity <= -250) {
 						canvas.SetColor(0, 208, 0, 45);
 					} else {
 						canvas.SetColor(208, 0, 0, 45);
@@ -720,23 +741,23 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 			}
 
 			for (std::pair<Vector, Vector> tile_fill_coordinate : tile_fill_coordinates) {
-				RT::Line(tile_fill_coordinate.first, tile_fill_coordinate.second, 2.0f).DrawWithinFrustum(canvas, frust);
+				RT::Line(tile_fill_coordinate.first, tile_fill_coordinate.second, 2.5f).DrawWithinFrustum(canvas, frust);
 			}
 
 			// Dont change this...
 			if (breakout_ball.GetLastTeamTouch() == 0) {// blue touched last
-				if (ballLocation.Y < 0) {
+				if (ballLocation.Y < 0 && h.GetTeamIndex() == 0) {
 					canvas.SetColor(208, 0, 0, 130);
 				} else { // orange side
-					if ((int)ball.GetVelocity().Z <= -250) {
+					if (ballVelocity <= -250) {
 						canvas.SetColor(0, 208, 0, 130);
 					} else {
 						canvas.SetColor(208, 0, 0, 130);
 					}
 				}
 			} else if (breakout_ball.GetLastTeamTouch() == 1) { // orange touched last
-				if (ballLocation.Y < 0) {
-					if ((int)ball.GetVelocity().Z <= -250) {
+				if (ballLocation.Y < 0 && h.GetTeamIndex() == 0) {
+					if (ballVelocity <= -250) {
 						canvas.SetColor(0, 208, 0, 130);
 					} else {
 						canvas.SetColor(208, 0, 0, 130);
@@ -746,14 +767,42 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 				}
 			}
 			for (std::pair<Vector, Vector> tile_corner : tile_corners) {
-				RT::Line(tile_corner.first, tile_corner.second, 3.0f).DrawWithinFrustum(canvas, frust);
+				RT::Line(tile_corner.first, tile_corner.second, 3.5f).DrawWithinFrustum(canvas, frust);
 			}
+
 			//RT::Sphere(ball.GetLocation(), RotatorToQuat(ball.GetRotation()), 102.24f).Draw(canvas, frust, camera.GetLocation(), 10);
 		}
 	}
+
 	Rotator camRot = camera.GetRotation();
 	camRot.Pitch -= 16000; // I have no idea how quats work, but this does the job! :)
-	RT::Circle(ball.GetLocation(), RotatorToQuat(camRot), 102.24f).Draw(canvas, frust);
+	RT::Circle(ball.GetLocation(), RotatorToQuat(camRot), 102.24f, 3).Draw(canvas, frust);
+
+	//RT::Circle({ ball.PredictPosition(WhenDoesBallHitGround()).Location.X ,ball.PredictPosition(WhenDoesBallHitGround()).Location.Y ,0 }, Quat{1, 0, 0, 0 }, 25, 5).Draw(canvas, frust);
+
+	float coneZ = 25 * std::sin(((currentTime - coneUpDownMotionTime).count() / 1000000000.0f) * 4) + 60; // goes up and down nicely
+	Vector lerpedPosition = { PredictedBallPosition.X, PredictedBallPosition.Y, 0 };
+
+	if (VectorUtils::DistanceTo(lastBallLocation, PredictedBallPosition) < 100.0f) {
+		lerpedPosition = lastBallLocation;
+	}
+
+	double timeDifference = ((currentTime - coneLastMoveTime).count() / 1000000000.0f);
+	// This works half decently, I dont like lerp.............
+	if (timeDifference <= WhenDoesBallHitGround()) {
+		//coneUpDownMotionTime = std::chrono::high_resolution_clock::now();
+		if (VectorUtils::DistanceTo(lastBallLocation, PredictedBallPosition) > 100.0f) {
+			lerpedPosition = Vector::lerp(lastBallLocation, Vector{ PredictedBallPosition.X, PredictedBallPosition.Y, 0 }, timeDifference / WhenDoesBallHitGround());
+		}
+	} else {
+		if (VectorUtils::DistanceTo(lastBallLocation, PredictedBallPosition) > 100.0f) {
+			lastBallLocation = { PredictedBallPosition.X, PredictedBallPosition.Y, 0 };
+			coneLastMoveTime = std::chrono::high_resolution_clock::now();
+		}
+	}
+	if (frust.IsInFrustum({ lerpedPosition.X, lerpedPosition.Y, coneZ })) {
+		RT::Cone({ lerpedPosition.X, lerpedPosition.Y, coneZ }, Vector{ 0,0,-1 }).Draw(canvas);
+	}
 	//-----------------FIND OPEN NETS-----------------
 	std::vector<int32_t> open_nets = FindOpenNets();
 	for (int32_t  open_net : open_nets) {
@@ -761,8 +810,8 @@ void DropShotCalculateShot::Render(CanvasWrapper canvas) {
 		float distanceFromPlayer = VectorUtils::DistanceTo(car.GetLocation(), Vector{ h.CenterPosition.X, h.CenterPosition.Y, 0 });
 		// Any more lines can cause FPS drop, so if you have beefy pc and care for some crisp hexagons, have at it.
 		int numberOfLines = 100000 / (int)distanceFromPlayer;
-		if (numberOfLines >= 50) {
-			numberOfLines = 50;
+		if (numberOfLines >= MAX_HEXAGON_LINES) {
+			numberOfLines = MAX_HEXAGON_LINES;
 		}
 		std::vector<Vector> connectors = GetHexagonConnectors(h);
 		std::vector<std::pair<Vector, Vector>> tile_corners = GetHexagonCornors(h);

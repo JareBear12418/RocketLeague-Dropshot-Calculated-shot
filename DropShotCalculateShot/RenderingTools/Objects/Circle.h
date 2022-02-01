@@ -19,7 +19,7 @@ namespace RT
 
 		// CONSTRUCTORS
 		explicit Circle();
-		explicit Circle(Vector loc, Quat rot, float rad);
+		explicit Circle(Vector loc, Quat rot, float rad, float lineThick);
 
 		// FUNCTIONS
 		void Draw(CanvasWrapper canvas, Frustum &frustum) const;
