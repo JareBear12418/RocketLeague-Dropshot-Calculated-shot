@@ -4,4 +4,4 @@
 
 [Mod download](https://bakkesplugins.com/plugins/view/306)
 
-[Demo video](https://www.youtube.com/watch?v=QqanTZ_ukSw)
+[Demo video](https://youtu.be/Y-mbpgGNV6s)
